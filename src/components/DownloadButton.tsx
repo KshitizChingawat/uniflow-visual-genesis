@@ -3,7 +3,13 @@ import { useState } from 'react';
 import { Download, CheckCircle, Smartphone, Monitor, Laptop } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-const DownloadButton = ({ variant = "default", size = "default", className = "" }) => {
+interface DownloadButtonProps {
+  variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
+  size?: "default" | "sm" | "lg" | "icon";
+  className?: string;
+}
+
+const DownloadButton = ({ variant = "default", size = "default", className = "" }: DownloadButtonProps) => {
   const [showDownloadOptions, setShowDownloadOptions] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [downloaded, setDownloaded] = useState(false);
