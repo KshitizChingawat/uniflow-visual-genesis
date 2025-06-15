@@ -1,36 +1,61 @@
 
 import { useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Menu, X } from 'lucide-react';
+import DownloadButton from './DownloadButton';
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const location = useLocation();
+
+  const isActive = (path: string) => location.pathname === path;
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          <div className="flex items-center space-x-2">
+          <Link to="/" className="flex items-center space-x-2">
             <div className="w-8 h-8 bg-gradient-to-r from-unilink-500 to-unilink-700 rounded-lg flex items-center justify-center">
               <div className="w-4 h-4 bg-white rounded-full"></div>
             </div>
             <span className="text-xl font-bold text-gray-900">UniLink</span>
-          </div>
+          </Link>
 
           <nav className="hidden md:flex items-center space-x-8">
-            <a href="#features" className="text-gray-700 hover:text-unilink-600 transition-colors">Features</a>
-            <a href="#compatibility" className="text-gray-700 hover:text-unilink-600 transition-colors">Compatibility</a>
-            <a href="#security" className="text-gray-700 hover:text-unilink-600 transition-colors">Security</a>
-            <a href="#pricing" className="text-gray-700 hover:text-unilink-600 transition-colors">Pricing</a>
+            <Link 
+              to="/#features" 
+              className={`transition-colors ${isActive('/') ? 'text-unilink-600' : 'text-gray-700 hover:text-unilink-600'}`}
+            >
+              Features
+            </Link>
+            <Link 
+              to="/#compatibility" 
+              className={`transition-colors ${isActive('/') ? 'text-unilink-600' : 'text-gray-700 hover:text-unilink-600'}`}
+            >
+              Compatibility
+            </Link>
+            <Link 
+              to="/security" 
+              className={`transition-colors ${isActive('/security') ? 'text-unilink-600' : 'text-gray-700 hover:text-unilink-600'}`}
+            >
+              Security
+            </Link>
+            <Link 
+              to="/pricing" 
+              className={`transition-colors ${isActive('/pricing') ? 'text-unilink-600' : 'text-gray-700 hover:text-unilink-600'}`}
+            >
+              Pricing
+            </Link>
           </nav>
 
           <div className="hidden md:flex items-center space-x-4">
-            <Button variant="ghost" className="text-gray-700 hover:text-unilink-600">
-              Sign In
-            </Button>
-            <Button className="bg-unilink-600 hover:bg-unilink-700 text-white">
-              Download
-            </Button>
+            <Link to="/login">
+              <Button variant="ghost" className="text-gray-700 hover:text-unilink-600">
+                Sign In
+              </Button>
+            </Link>
+            <DownloadButton className="bg-unilink-600 hover:bg-unilink-700 text-white" />
           </div>
 
           <button
@@ -44,13 +69,39 @@ const Header = () => {
         {isMenuOpen && (
           <div className="md:hidden py-4 border-t border-gray-200">
             <nav className="flex flex-col space-y-4">
-              <a href="#features" className="text-gray-700 hover:text-unilink-600">Features</a>
-              <a href="#compatibility" className="text-gray-700 hover:text-unilink-600">Compatibility</a>
-              <a href="#security" className="text-gray-700 hover:text-unilink-600">Security</a>
-              <a href="#pricing" className="text-gray-700 hover:text-unilink-600">Pricing</a>
+              <Link 
+                to="/#features" 
+                className="text-gray-700 hover:text-unilink-600"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Features
+              </Link>
+              <Link 
+                to="/#compatibility" 
+                className="text-gray-700 hover:text-unilink-600"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Compatibility
+              </Link>
+              <Link 
+                to="/security" 
+                className="text-gray-700 hover:text-unilink-600"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Security
+              </Link>
+              <Link 
+                to="/pricing" 
+                className="text-gray-700 hover:text-unilink-600"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Pricing
+              </Link>
               <div className="flex flex-col space-y-2 pt-4">
-                <Button variant="ghost" className="justify-start">Sign In</Button>
-                <Button className="bg-unilink-600 hover:bg-unilink-700 text-white">Download</Button>
+                <Link to="/login" onClick={() => setIsMenuOpen(false)}>
+                  <Button variant="ghost" className="justify-start w-full">Sign In</Button>
+                </Link>
+                <DownloadButton className="bg-unilink-600 hover:bg-unilink-700 text-white" />
               </div>
             </nav>
           </div>
