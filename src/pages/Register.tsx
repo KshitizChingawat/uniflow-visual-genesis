@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Eye, EyeOff, ArrowLeft, Check } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import Logo from '@/components/Logo';
@@ -12,6 +13,7 @@ const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -28,12 +30,29 @@ const Register = () => {
       alert('Passwords do not match');
       return;
     }
+
+    if (!agreedToTerms) {
+      alert('Please agree to the Terms of Service and Privacy Policy');
+      return;
+    }
     
     setLoading(true);
     
-    await signUp(formData.email, formData.password, formData.firstName, formData.lastName);
+    const result = await signUp(formData.email, formData.password, formData.firstName, formData.lastName);
     
     setLoading(false);
+    
+    // Clear form on successful registration
+    if (!result.error) {
+      setFormData({
+        firstName: '',
+        lastName: '',
+        email: '',
+        password: '',
+        confirmPassword: ''
+      });
+      setAgreedToTerms(false);
+    }
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -145,7 +164,7 @@ const Register = () => {
               </div>
             </div>
 
-            {/* Password Requirements */}
+            {/* UniLink Features */}
             <div className="bg-gray-50 rounded-lg p-4">
               <p className="text-sm font-medium text-gray-700 mb-2">UniLink Features:</p>
               <div className="space-y-1">
@@ -163,9 +182,14 @@ const Register = () => {
               </div>
             </div>
 
-            <div className="flex items-start">
-              <input type="checkbox" className="rounded border-gray-300 mt-1" required />
-              <span className="ml-2 text-sm text-gray-600">
+            <div className="flex items-start space-x-2">
+              <Checkbox
+                id="terms"
+                checked={agreedToTerms}
+                onCheckedChange={(checked) => setAgreedToTerms(checked as boolean)}
+                className="mt-1"
+              />
+              <Label htmlFor="terms" className="text-sm text-gray-600">
                 I agree to the{' '}
                 <Link to="/terms" className="text-unilink-600 hover:text-unilink-700">
                   Terms of Service
@@ -174,13 +198,13 @@ const Register = () => {
                 <Link to="/privacy" className="text-unilink-600 hover:text-unilink-700">
                   Privacy Policy
                 </Link>
-              </span>
+              </Label>
             </div>
 
             <Button 
               type="submit" 
               className="w-full bg-unilink-600 hover:bg-unilink-700"
-              disabled={loading}
+              disabled={loading || !agreedToTerms}
             >
               {loading ? 'Creating Account...' : 'Create Account'}
             </Button>

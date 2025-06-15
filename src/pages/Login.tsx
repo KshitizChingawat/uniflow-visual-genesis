@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import Logo from '@/components/Logo';
@@ -12,6 +13,7 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const { signIn } = useAuth();
 
@@ -19,9 +21,16 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
     
-    await signIn(email, password);
+    const result = await signIn(email, password, rememberMe);
     
     setLoading(false);
+    
+    // Don't clear form if there's an error, user might want to try again
+    if (!result.error) {
+      setEmail('');
+      setPassword('');
+      setRememberMe(false);
+    }
   };
 
   return (
@@ -81,10 +90,16 @@ const Login = () => {
             </div>
 
             <div className="flex items-center justify-between">
-              <label className="flex items-center">
-                <input type="checkbox" className="rounded border-gray-300" />
-                <span className="ml-2 text-sm text-gray-600">Remember me</span>
-              </label>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="remember-me"
+                  checked={rememberMe}
+                  onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                />
+                <Label htmlFor="remember-me" className="text-sm text-gray-600">
+                  Remember me
+                </Label>
+              </div>
               <Link to="/forgot-password" className="text-sm text-unilink-600 hover:text-unilink-700">
                 Forgot password?
               </Link>
