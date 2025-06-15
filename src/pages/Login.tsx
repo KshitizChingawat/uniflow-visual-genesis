@@ -5,16 +5,23 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import Logo from '@/components/Logo';
 
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { signIn } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle login logic here
-    console.log('Login attempted with:', { email, password });
+    setLoading(true);
+    
+    await signIn(email, password);
+    
+    setLoading(false);
   };
 
   return (
@@ -30,8 +37,8 @@ const Login = () => {
         <div className="bg-white rounded-2xl shadow-2xl p-8">
           {/* Logo */}
           <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-gradient-to-r from-unilink-500 to-unilink-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <div className="w-8 h-8 bg-white rounded-full"></div>
+            <div className="flex justify-center mb-4">
+              <Logo size="lg" showText={false} />
             </div>
             <h1 className="text-2xl font-bold text-gray-900">Welcome back</h1>
             <p className="text-gray-600 mt-2">Sign in to your UniLink account</p>
@@ -83,8 +90,12 @@ const Login = () => {
               </Link>
             </div>
 
-            <Button type="submit" className="w-full bg-unilink-600 hover:bg-unilink-700">
-              Sign In
+            <Button 
+              type="submit" 
+              className="w-full bg-unilink-600 hover:bg-unilink-700"
+              disabled={loading}
+            >
+              {loading ? 'Signing in...' : 'Sign In'}
             </Button>
           </form>
 

@@ -5,10 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Eye, EyeOff, ArrowLeft, Check } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import Logo from '@/components/Logo';
 
 const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -16,11 +19,21 @@ const Register = () => {
     password: '',
     confirmPassword: ''
   });
+  const { signUp } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle registration logic here
-    console.log('Registration attempted with:', formData);
+    
+    if (formData.password !== formData.confirmPassword) {
+      alert('Passwords do not match');
+      return;
+    }
+    
+    setLoading(true);
+    
+    await signUp(formData.email, formData.password, formData.firstName, formData.lastName);
+    
+    setLoading(false);
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -40,11 +53,11 @@ const Register = () => {
         <div className="bg-white rounded-2xl shadow-2xl p-8">
           {/* Logo */}
           <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-gradient-to-r from-unilink-500 to-unilink-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <div className="w-8 h-8 bg-white rounded-full"></div>
+            <div className="flex justify-center mb-4">
+              <Logo size="lg" showText={false} />
             </div>
             <h1 className="text-2xl font-bold text-gray-900">Create your account</h1>
-            <p className="text-gray-600 mt-2">Join thousands of users connecting their devices</p>
+            <p className="text-gray-600 mt-2">Join thousands of users connecting their devices without range restrictions</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -134,17 +147,17 @@ const Register = () => {
 
             {/* Password Requirements */}
             <div className="bg-gray-50 rounded-lg p-4">
-              <p className="text-sm font-medium text-gray-700 mb-2">Password requirements:</p>
+              <p className="text-sm font-medium text-gray-700 mb-2">UniLink Features:</p>
               <div className="space-y-1">
                 {[
-                  'At least 8 characters long',
-                  'Contains uppercase and lowercase letters',
-                  'Contains at least one number',
-                  'Contains at least one special character'
-                ].map((requirement, index) => (
+                  'Connect devices without range restrictions',
+                  'Secure end-to-end encryption',
+                  'Cross-platform compatibility',
+                  'Real-time file sharing'
+                ].map((feature, index) => (
                   <div key={index} className="flex items-center text-sm">
                     <Check className="w-3 h-3 text-green-500 mr-2" />
-                    <span className="text-gray-600">{requirement}</span>
+                    <span className="text-gray-600">{feature}</span>
                   </div>
                 ))}
               </div>
@@ -164,8 +177,12 @@ const Register = () => {
               </span>
             </div>
 
-            <Button type="submit" className="w-full bg-unilink-600 hover:bg-unilink-700">
-              Create Account
+            <Button 
+              type="submit" 
+              className="w-full bg-unilink-600 hover:bg-unilink-700"
+              disabled={loading}
+            >
+              {loading ? 'Creating Account...' : 'Create Account'}
             </Button>
           </form>
 
