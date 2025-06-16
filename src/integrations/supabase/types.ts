@@ -9,7 +9,270 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      clipboard_sync: {
+        Row: {
+          content: string
+          content_type: string
+          created_at: string
+          device_id: string
+          encrypted_content: string | null
+          id: string
+          sync_timestamp: string
+          synced_to_devices: string[] | null
+          user_id: string
+        }
+        Insert: {
+          content: string
+          content_type?: string
+          created_at?: string
+          device_id: string
+          encrypted_content?: string | null
+          id?: string
+          sync_timestamp?: string
+          synced_to_devices?: string[] | null
+          user_id: string
+        }
+        Update: {
+          content?: string
+          content_type?: string
+          created_at?: string
+          device_id?: string
+          encrypted_content?: string | null
+          id?: string
+          sync_timestamp?: string
+          synced_to_devices?: string[] | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clipboard_sync_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      devices: {
+        Row: {
+          created_at: string
+          device_id: string
+          device_name: string
+          device_type: string
+          id: string
+          is_active: boolean | null
+          last_seen: string | null
+          platform: string
+          public_key: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device_id: string
+          device_name: string
+          device_type: string
+          id?: string
+          is_active?: boolean | null
+          last_seen?: string | null
+          platform: string
+          public_key?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          device_id?: string
+          device_name?: string
+          device_type?: string
+          id?: string
+          is_active?: boolean | null
+          last_seen?: string | null
+          platform?: string
+          public_key?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      file_transfers: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          encrypted_metadata: Json | null
+          file_hash: string | null
+          file_name: string
+          file_size: number
+          file_type: string | null
+          id: string
+          receiver_device_id: string | null
+          sender_device_id: string
+          transfer_method: string
+          transfer_status: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          encrypted_metadata?: Json | null
+          file_hash?: string | null
+          file_name: string
+          file_size: number
+          file_type?: string | null
+          id?: string
+          receiver_device_id?: string | null
+          sender_device_id: string
+          transfer_method?: string
+          transfer_status?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          encrypted_metadata?: Json | null
+          file_hash?: string | null
+          file_name?: string
+          file_size?: number
+          file_type?: string | null
+          id?: string
+          receiver_device_id?: string | null
+          sender_device_id?: string
+          transfer_method?: string
+          transfer_status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "file_transfers_receiver_device_id_fkey"
+            columns: ["receiver_device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "file_transfers_sender_device_id_fkey"
+            columns: ["sender_device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          app_name: string | null
+          body: string | null
+          created_at: string
+          id: string
+          is_mirrored: boolean | null
+          notification_type: string | null
+          source_device_id: string
+          target_devices: string[] | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          app_name?: string | null
+          body?: string | null
+          created_at?: string
+          id?: string
+          is_mirrored?: boolean | null
+          notification_type?: string | null
+          source_device_id: string
+          target_devices?: string[] | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          app_name?: string | null
+          body?: string | null
+          created_at?: string
+          id?: string
+          is_mirrored?: boolean | null
+          notification_type?: string | null
+          source_device_id?: string
+          target_devices?: string[] | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_source_device_id_fkey"
+            columns: ["source_device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      secure_vault: {
+        Row: {
+          accessed_at: string | null
+          created_at: string
+          encrypted_content: string
+          id: string
+          item_type: string
+          metadata: Json | null
+          tags: string[] | null
+          user_id: string
+        }
+        Insert: {
+          accessed_at?: string | null
+          created_at?: string
+          encrypted_content: string
+          id?: string
+          item_type: string
+          metadata?: Json | null
+          tags?: string[] | null
+          user_id: string
+        }
+        Update: {
+          accessed_at?: string | null
+          created_at?: string
+          encrypted_content?: string
+          id?: string
+          item_type?: string
+          metadata?: Json | null
+          tags?: string[] | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      usage_analytics: {
+        Row: {
+          action_type: string
+          created_at: string
+          device_id: string
+          id: string
+          metadata: Json | null
+          user_id: string
+        }
+        Insert: {
+          action_type: string
+          created_at?: string
+          device_id: string
+          id?: string
+          metadata?: Json | null
+          user_id: string
+        }
+        Update: {
+          action_type?: string
+          created_at?: string
+          device_id?: string
+          id?: string
+          metadata?: Json | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "usage_analytics_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
