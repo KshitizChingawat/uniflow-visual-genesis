@@ -60,7 +60,7 @@ export const useDevices = () => {
 
       if (error) throw error;
       
-      setCurrentDevice(data);
+      setCurrentDevice(data as Device);
       console.log('Device registered:', data);
     } catch (error) {
       console.error('Error registering device:', error);
@@ -80,7 +80,7 @@ export const useDevices = () => {
         .order('last_seen', { ascending: false });
 
       if (error) throw error;
-      setDevices(data || []);
+      setDevices((data || []) as Device[]);
     } catch (error) {
       console.error('Error fetching devices:', error);
       toast.error('Failed to fetch devices');

@@ -125,7 +125,7 @@ export const useFileTransfer = () => {
         .limit(100);
 
       if (error) throw error;
-      setTransfers(data || []);
+      setTransfers((data || []) as FileTransfer[]);
     } catch (error) {
       console.error('Error fetching transfers:', error);
       toast.error('Failed to fetch file transfers');
