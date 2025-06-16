@@ -1,11 +1,10 @@
-
 import { useState, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Upload, Download, FileTransfer, Trash2, X } from 'lucide-react';
+import { Upload, Download, Send, Trash2, X } from 'lucide-react';
 import { useFileTransfer } from '@/hooks/useFileTransfer';
 import { useDevices } from '@/hooks/useDevices';
 
@@ -122,7 +121,7 @@ const FileTransferPage = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
-            <FileTransfer className="w-5 h-5" />
+            <Send className="w-5 h-5" />
             <span>Transfer History</span>
           </CardTitle>
           <CardDescription>
@@ -140,7 +139,7 @@ const FileTransferPage = () => {
             </div>
           ) : transfers.length === 0 ? (
             <div className="text-center py-12">
-              <FileTransfer className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <Send className="w-12 h-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-gray-900 mb-2">No file transfers</h3>
               <p className="text-gray-600">
                 Start transferring files to see them appear here

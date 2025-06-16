@@ -7,7 +7,7 @@ import {
   Home, 
   Smartphone, 
   Clipboard, 
-  FileTransfer, 
+  Send, 
   Settings, 
   LogOut, 
   Menu, 
@@ -31,7 +31,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     { name: 'Dashboard', href: '/dashboard', icon: Home },
     { name: 'Devices', href: '/dashboard/devices', icon: Smartphone },
     { name: 'Clipboard', href: '/dashboard/clipboard', icon: Clipboard },
-    { name: 'File Transfer', href: '/dashboard/files', icon: FileTransfer },
+    { name: 'File Transfer', href: '/dashboard/files', icon: Send },
     { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
     { name: 'Security', href: '/dashboard/security', icon: Shield },
   ];

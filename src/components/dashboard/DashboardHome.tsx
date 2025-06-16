@@ -1,7 +1,6 @@
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Smartphone, Laptop, Tablet, Globe, Activity, FileTransfer, Clipboard, Shield } from 'lucide-react';
+import { Smartphone, Laptop, Tablet, Globe, Activity, Send, Clipboard, Shield } from 'lucide-react';
 import { useDevices } from '@/hooks/useDevices';
 import { useClipboard } from '@/hooks/useClipboard';
 import { useFileTransfer } from '@/hooks/useFileTransfer';
@@ -50,7 +49,7 @@ const DashboardHome = () => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">File Transfers</CardTitle>
-            <FileTransfer className="h-4 w-4 text-muted-foreground" />
+            <Send className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{transfers.length}</div>
@@ -92,7 +91,7 @@ const DashboardHome = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <Button className="w-full justify-start" variant="outline">
-              <FileTransfer className="w-4 h-4 mr-2" />
+              <Send className="w-4 h-4 mr-2" />
               Send File to Device
             </Button>
             <Button className="w-full justify-start" variant="outline">
