@@ -2,16 +2,18 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { 
-  Monitor, 
+  Home, 
+  Smartphone, 
   Clipboard, 
-  Share, 
-  Shield, 
-  BarChart3, 
-  Settings,
-  Menu,
+  FileTransfer, 
+  Settings, 
+  LogOut, 
+  Menu, 
   X,
-  Bell
+  Shield,
+  BarChart3
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import Logo from '@/components/Logo';
@@ -22,130 +24,143 @@ interface DashboardLayoutProps {
 
 const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const location = useLocation();
   const { user, signOut } = useAuth();
+  const location = useLocation();
 
   const navigation = [
-    { name: 'Overview', href: '/dashboard', icon: BarChart3 },
-    { name: 'Devices', href: '/dashboard/devices', icon: Monitor },
+    { name: 'Dashboard', href: '/dashboard', icon: Home },
+    { name: 'Devices', href: '/dashboard/devices', icon: Smartphone },
     { name: 'Clipboard', href: '/dashboard/clipboard', icon: Clipboard },
-    { name: 'File Transfer', href: '/dashboard/files', icon: Share },
-    { name: 'Notifications', href: '/dashboard/notifications', icon: Bell },
-    { name: 'Secure Vault', href: '/dashboard/vault', icon: Shield },
-    { name: 'Settings', href: '/dashboard/settings', icon: Settings },
+    { name: 'File Transfer', href: '/dashboard/files', icon: FileTransfer },
+    { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
+    { name: 'Security', href: '/dashboard/security', icon: Shield },
   ];
 
   const isActive = (path: string) => {
-    return location.pathname === path || 
-           (path !== '/dashboard' && location.pathname.startsWith(path));
+    if (path === '/dashboard') {
+      return location.pathname === '/dashboard' || location.pathname === '/dashboard/';
+    }
+    return location.pathname.startsWith(path);
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Mobile sidebar */}
-      <div className={`fixed inset-0 z-50 lg:hidden ${sidebarOpen ? 'block' : 'hidden'}`}>
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setSidebarOpen(false)} />
-        <div className="fixed inset-y-0 left-0 flex w-64 flex-col bg-white">
-          <div className="flex h-16 items-center justify-between px-4">
-            <Logo size="sm" />
-            <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(false)}>
-              <X className="w-4 h-4" />
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Mobile sidebar backdrop */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <div className={`
+        fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+      `}>
+        <div className="flex flex-col h-full">
+          {/* Header */}
+          <div className="flex items-center justify-between p-4 border-b">
+            <Link to="/">
+              <Logo size="sm" />
+            </Link>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSidebarOpen(false)}
+              className="lg:hidden"
+            >
+              <X className="w-5 h-5" />
             </Button>
           </div>
-          <nav className="flex-1 px-4 py-4">
-            <ul className="space-y-2">
-              {navigation.map((item) => (
-                <li key={item.name}>
-                  <Link
-                    to={item.href}
-                    className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                      isActive(item.href)
-                        ? 'bg-unilink-100 text-unilink-700'
-                        : 'text-gray-700 hover:bg-gray-100'
-                    }`}
-                    onClick={() => setSidebarOpen(false)}
-                  >
-                    <item.icon className="w-5 h-5 mr-3" />
-                    {item.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </nav>
-        </div>
-      </div>
 
-      {/* Desktop sidebar */}
-      <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
-        <div className="flex flex-1 flex-col bg-white border-r border-gray-200">
-          <div className="flex h-16 items-center px-4">
-            <Logo size="sm" />
-          </div>
-          <nav className="flex-1 px-4 py-4">
-            <ul className="space-y-2">
-              {navigation.map((item) => (
-                <li key={item.name}>
-                  <Link
-                    to={item.href}
-                    className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                      isActive(item.href)
-                        ? 'bg-unilink-100 text-unilink-700'
-                        : 'text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
-                    <item.icon className="w-5 h-5 mr-3" />
-                    {item.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </nav>
-          <div className="border-t border-gray-200 p-4">
-            <div className="flex items-center space-x-3 mb-3">
-              <div className="w-8 h-8 bg-unilink-600 rounded-full flex items-center justify-center">
-                <span className="text-white text-sm font-medium">
-                  {user?.user_metadata?.first_name?.[0] || user?.email?.[0]?.toUpperCase()}
+          {/* User info */}
+          <div className="p-4 border-b">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-unilink-100 rounded-full flex items-center justify-center">
+                <span className="text-unilink-600 font-semibold">
+                  {user?.user_metadata?.first_name?.[0] || user?.email?.[0] || 'U'}
                 </span>
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-900 truncate">
-                  {user?.user_metadata?.first_name || user?.email}
+                  {user?.user_metadata?.first_name} {user?.user_metadata?.last_name}
                 </p>
+                <p className="text-xs text-gray-500 truncate">{user?.email}</p>
               </div>
             </div>
-            <Button variant="outline" size="sm" onClick={signOut} className="w-full">
-              Sign Out
-            </Button>
+          </div>
+
+          {/* Navigation */}
+          <nav className="flex-1 p-4 space-y-2">
+            {navigation.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.name}
+                  to={item.href}
+                  className={`
+                    flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors
+                    ${isActive(item.href) 
+                      ? 'bg-unilink-100 text-unilink-700' 
+                      : 'text-gray-700 hover:bg-gray-100'
+                    }
+                  `}
+                  onClick={() => setSidebarOpen(false)}
+                >
+                  <Icon className="w-5 h-5" />
+                  <span>{item.name}</span>
+                  {item.name === 'Security' && (
+                    <Badge variant="secondary" className="ml-auto">
+                      Pro
+                    </Badge>
+                  )}
+                </Link>
+              );
+            })}
+          </nav>
+
+          {/* Footer */}
+          <div className="p-4 border-t">
+            <div className="space-y-2">
+              <Link
+                to="/dashboard/settings"
+                className="flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors"
+              >
+                <Settings className="w-5 h-5" />
+                <span>Settings</span>
+              </Link>
+              <Button
+                variant="ghost"
+                onClick={signOut}
+                className="w-full justify-start text-gray-700 hover:bg-gray-100"
+              >
+                <LogOut className="w-5 h-5 mr-3" />
+                Sign Out
+              </Button>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Main content */}
-      <div className="lg:pl-64">
-        {/* Top header */}
-        <div className="sticky top-0 z-40 bg-white border-b border-gray-200">
-          <div className="flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="lg:hidden"
-              onClick={() => setSidebarOpen(true)}
-            >
-              <Menu className="w-5 h-5" />
-            </Button>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-500">
-                Welcome back, {user?.user_metadata?.first_name || 'User'}!
-              </span>
-            </div>
-          </div>
+      <div className="flex-1 lg:ml-0">
+        {/* Mobile header */}
+        <div className="lg:hidden bg-white border-b px-4 py-3 flex items-center justify-between">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setSidebarOpen(true)}
+          >
+            <Menu className="w-5 h-5" />
+          </Button>
+          <Logo size="sm" />
+          <div></div> {/* Spacer for center alignment */}
         </div>
 
         {/* Page content */}
-        <main className="py-6">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            {children}
-          </div>
+        <main className="p-6">
+          {children}
         </main>
       </div>
     </div>

@@ -22,7 +22,7 @@ export const useAuth = () => {
         
         if (event === 'SIGNED_IN' && session?.user) {
           toast.success('Welcome back!');
-          navigate('/');
+          navigate('/dashboard');
         }
         
         if (event === 'SIGNED_OUT') {
@@ -50,11 +50,9 @@ export const useAuth = () => {
       });
       
       if (error) {
-        // Handle specific error cases
         if (error.message.includes('Invalid login credentials')) {
-          toast.error('User not found. Redirecting to sign up...');
-          setTimeout(() => navigate('/register'), 2000);
-          return { error, shouldRedirect: true };
+          toast.error('Invalid email or password. Please try again or sign up.');
+          return { error, shouldRedirect: false };
         } else if (error.message.includes('Email not confirmed')) {
           toast.error('Please check your email and click the confirmation link before signing in.');
           return { error };
@@ -64,7 +62,6 @@ export const useAuth = () => {
         }
       }
       
-      // Handle remember me functionality
       if (rememberMe && data.session) {
         localStorage.setItem('supabase-remember-me', 'true');
       } else {
@@ -103,7 +100,6 @@ export const useAuth = () => {
         toast.success('Account created! Please check your email to verify your account before signing in.');
       } else if (data.session) {
         toast.success('Account created and signed in successfully!');
-        navigate('/');
       }
       
       return { error: null };
