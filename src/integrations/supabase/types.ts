@@ -9,6 +9,130 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      ai_analytics: {
+        Row: {
+          ai_context: Json | null
+          created_at: string
+          device_id: string
+          event_data: Json
+          event_type: string
+          id: string
+          processing_time_ms: number | null
+          success: boolean | null
+          user_id: string
+        }
+        Insert: {
+          ai_context?: Json | null
+          created_at?: string
+          device_id: string
+          event_data: Json
+          event_type: string
+          id?: string
+          processing_time_ms?: number | null
+          success?: boolean | null
+          user_id: string
+        }
+        Update: {
+          ai_context?: Json | null
+          created_at?: string
+          device_id?: string
+          event_data?: Json
+          event_type?: string
+          id?: string
+          processing_time_ms?: number | null
+          success?: boolean | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_analytics_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_suggestions: {
+        Row: {
+          confidence_score: number | null
+          content: Json
+          created_at: string
+          expires_at: string | null
+          feedback_score: number | null
+          id: string
+          suggestion_type: string
+          used: boolean | null
+          user_id: string
+        }
+        Insert: {
+          confidence_score?: number | null
+          content: Json
+          created_at?: string
+          expires_at?: string | null
+          feedback_score?: number | null
+          id?: string
+          suggestion_type: string
+          used?: boolean | null
+          user_id: string
+        }
+        Update: {
+          confidence_score?: number | null
+          content?: Json
+          created_at?: string
+          expires_at?: string | null
+          feedback_score?: number | null
+          id?: string
+          suggestion_type?: string
+          used?: boolean | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      bluetooth_devices: {
+        Row: {
+          bluetooth_mac: string
+          created_at: string
+          device_capabilities: Json | null
+          device_id: string | null
+          device_name: string
+          id: string
+          last_discovered: string | null
+          pairing_status: string | null
+          signal_strength: number | null
+        }
+        Insert: {
+          bluetooth_mac: string
+          created_at?: string
+          device_capabilities?: Json | null
+          device_id?: string | null
+          device_name: string
+          id?: string
+          last_discovered?: string | null
+          pairing_status?: string | null
+          signal_strength?: number | null
+        }
+        Update: {
+          bluetooth_mac?: string
+          created_at?: string
+          device_capabilities?: Json | null
+          device_id?: string | null
+          device_name?: string
+          id?: string
+          last_discovered?: string | null
+          pairing_status?: string | null
+          signal_strength?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bluetooth_devices_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clipboard_sync: {
         Row: {
           content: string
@@ -47,6 +171,69 @@ export type Database = {
           {
             foreignKeyName: "clipboard_sync_device_id_fkey"
             columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      connection_sessions: {
+        Row: {
+          bandwidth_mbps: number | null
+          connection_type: string
+          created_at: string
+          encryption_method: string | null
+          ended_at: string | null
+          id: string
+          initiator_device_id: string
+          latency_ms: number | null
+          quality_metrics: Json | null
+          session_key: string | null
+          status: string | null
+          target_device_id: string
+          user_id: string
+        }
+        Insert: {
+          bandwidth_mbps?: number | null
+          connection_type: string
+          created_at?: string
+          encryption_method?: string | null
+          ended_at?: string | null
+          id?: string
+          initiator_device_id: string
+          latency_ms?: number | null
+          quality_metrics?: Json | null
+          session_key?: string | null
+          status?: string | null
+          target_device_id: string
+          user_id: string
+        }
+        Update: {
+          bandwidth_mbps?: number | null
+          connection_type?: string
+          created_at?: string
+          encryption_method?: string | null
+          ended_at?: string | null
+          id?: string
+          initiator_device_id?: string
+          latency_ms?: number | null
+          quality_metrics?: Json | null
+          session_key?: string | null
+          status?: string | null
+          target_device_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "connection_sessions_initiator_device_id_fkey"
+            columns: ["initiator_device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "connection_sessions_target_device_id_fkey"
+            columns: ["target_device_id"]
             isOneToOne: false
             referencedRelation: "devices"
             referencedColumns: ["id"]
@@ -205,6 +392,63 @@ export type Database = {
           },
         ]
       }
+      screen_sessions: {
+        Row: {
+          created_at: string
+          ended_at: string | null
+          host_device_id: string
+          id: string
+          is_active: boolean | null
+          permissions: Json | null
+          quality_settings: Json | null
+          session_token: string
+          session_type: string | null
+          viewer_count: number | null
+          viewer_device_id: string
+        }
+        Insert: {
+          created_at?: string
+          ended_at?: string | null
+          host_device_id: string
+          id?: string
+          is_active?: boolean | null
+          permissions?: Json | null
+          quality_settings?: Json | null
+          session_token: string
+          session_type?: string | null
+          viewer_count?: number | null
+          viewer_device_id: string
+        }
+        Update: {
+          created_at?: string
+          ended_at?: string | null
+          host_device_id?: string
+          id?: string
+          is_active?: boolean | null
+          permissions?: Json | null
+          quality_settings?: Json | null
+          session_token?: string
+          session_type?: string | null
+          viewer_count?: number | null
+          viewer_device_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "screen_sessions_host_device_id_fkey"
+            columns: ["host_device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screen_sessions_viewer_device_id_fkey"
+            columns: ["viewer_device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       secure_vault: {
         Row: {
           accessed_at: string | null
@@ -278,7 +522,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      cleanup_expired_ai_suggestions: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
