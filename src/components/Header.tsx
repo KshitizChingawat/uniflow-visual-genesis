@@ -52,6 +52,11 @@ const Header = () => {
           <div className="hidden md:flex items-center space-x-4">
             {user ? (
               <div className="flex items-center space-x-3">
+                <Link to="/dashboard">
+                  <Button variant="outline" className="text-gray-700 hover:text-unilink-600">
+                    Dashboard
+                  </Button>
+                </Link>
                 <span className="text-sm text-gray-700">Welcome, {user.user_metadata?.first_name || user.email}</span>
                 <Button variant="ghost" onClick={signOut} className="text-gray-700 hover:text-unilink-600">
                   <LogOut className="w-4 h-4 mr-2" />
@@ -111,10 +116,15 @@ const Header = () => {
               </Link>
               <div className="flex flex-col space-y-2 pt-4">
                 {user ? (
-                  <Button variant="ghost" onClick={signOut} className="justify-start w-full">
-                    <LogOut className="w-4 h-4 mr-2" />
-                    Sign Out
-                  </Button>
+                  <>
+                    <Link to="/dashboard" onClick={() => setIsMenuOpen(false)}>
+                      <Button variant="outline" className="justify-start w-full">Dashboard</Button>
+                    </Link>
+                    <Button variant="ghost" onClick={signOut} className="justify-start w-full">
+                      <LogOut className="w-4 h-4 mr-2" />
+                      Sign Out
+                    </Button>
+                  </>
                 ) : (
                   <>
                     <Link to="/login" onClick={() => setIsMenuOpen(false)}>

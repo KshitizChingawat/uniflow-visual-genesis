@@ -7,6 +7,9 @@ import DashboardHome from '@/components/dashboard/DashboardHome';
 import DevicesPage from '@/components/dashboard/DevicesPage';
 import ClipboardPage from '@/components/dashboard/ClipboardPage';
 import FileTransferPage from '@/components/dashboard/FileTransferPage';
+import AnalyticsPage from '@/components/dashboard/AnalyticsPage';
+import SecurityPage from '@/components/dashboard/SecurityPage';
+import SettingsPage from '@/components/dashboard/SettingsPage';
 
 const Dashboard = () => {
   const { user, loading } = useAuth();
@@ -30,6 +33,9 @@ const Dashboard = () => {
         <Route path="/devices" element={<DevicesPage />} />
         <Route path="/clipboard" element={<ClipboardPage />} />
         <Route path="/files" element={<FileTransferPage />} />
+        <Route path="/analytics" element={<AnalyticsPage />} />
+        <Route path="/security" element={<SecurityPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
       </Routes>
     </DashboardLayout>
   );
