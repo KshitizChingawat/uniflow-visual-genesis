@@ -116,7 +116,14 @@ export const useAIAssistant = () => {
         .limit(20);
 
       if (error) throw error;
-      setSuggestions(data || []);
+      
+      // Type assertion to ensure proper typing
+      const typedSuggestions = (data || []).map(item => ({
+        ...item,
+        suggestion_type: item.suggestion_type as AISuggestion['suggestion_type']
+      })) as AISuggestion[];
+      
+      setSuggestions(typedSuggestions);
     } catch (error) {
       console.error('Error fetching AI suggestions:', error);
     }

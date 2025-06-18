@@ -17,6 +17,14 @@ export interface BluetoothDevice {
   created_at: string;
 }
 
+declare global {
+  interface Navigator {
+    bluetooth?: {
+      requestDevice(options: any): Promise<any>;
+    };
+  }
+}
+
 export const useBluetoothDiscovery = () => {
   const [discoveredDevices, setDiscoveredDevices] = useState<BluetoothDevice[]>([]);
   const [pairedDevices, setPairedDevices] = useState<BluetoothDevice[]>([]);
@@ -27,7 +35,7 @@ export const useBluetoothDiscovery = () => {
 
   // Check Bluetooth support
   useEffect(() => {
-    if ('bluetooth' in navigator) {
+    if (navigator.bluetooth) {
       setBluetoothSupported(true);
     } else {
       console.log('Web Bluetooth not supported in this browser');
@@ -50,7 +58,7 @@ export const useBluetoothDiscovery = () => {
       setScanning(true);
       
       // Request Bluetooth device access
-      const device = await navigator.bluetooth.requestDevice({
+      const device = await navigator.bluetooth!.requestDevice({
         acceptAllDevices: true,
         optionalServices: ['battery_service', 'device_information']
       });
@@ -61,7 +69,7 @@ export const useBluetoothDiscovery = () => {
         toast.success(`Discovered device: ${device.name || 'Unknown Device'}`);
       }
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Bluetooth scanning error:', error);
       if (error.name === 'NotFoundError') {
         toast.error('No Bluetooth devices found or user cancelled');
@@ -143,7 +151,11 @@ export const useBluetoothDiscovery = () => {
 
       if (error) throw error;
 
-      const devices = data || [];
+      const devices = (data || []).map(item => ({
+        ...item,
+        pairing_status: item.pairing_status as BluetoothDevice['pairing_status']
+      })) as BluetoothDevice[];
+      
       setDiscoveredDevices(devices.filter(d => d.pairing_status === 'discovered'));
       setPairedDevices(devices.filter(d => d.pairing_status === 'paired'));
 

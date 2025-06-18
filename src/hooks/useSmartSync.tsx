@@ -119,7 +119,7 @@ export const useSmartSync = () => {
     }
   }, [smartSuggestionsEnabled, recommendDevice, devices, currentDevice, user]);
 
-  // Auto-detect and sync clipboard changes
+  // Auto-detect and sync clipboard changes (with proper error handling)
   useEffect(() => {
     if (!autoSyncEnabled || !currentDevice) return;
 
@@ -136,7 +136,7 @@ export const useSmartSync = () => {
           }
         }
       } catch (error) {
-        // Clipboard access not available or denied
+        // Clipboard access not available or denied - this is expected in many browsers
         console.log('Clipboard auto-sync not available');
       }
     };
