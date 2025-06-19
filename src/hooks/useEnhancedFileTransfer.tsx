@@ -44,22 +44,33 @@ export const useEnhancedFileTransfer = () => {
 
       if (transferError) throw transferError;
 
-      // Upload to storage
+      // Upload to storage with progress simulation
       const filePath = `${user.id}/${transferId}/${file.name}`;
       
+      // Simulate progress updates since Supabase doesn't support onUploadProgress
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => {
+          const currentProgress = prev[transferId] || 0;
+          const newProgress = Math.min(currentProgress + Math.random() * 20, 95);
+          onProgress?.(newProgress);
+          return { ...prev, [transferId]: newProgress };
+        });
+      }, 500);
+
       const { data, error: uploadError } = await supabase.storage
         .from('file-transfers')
         .upload(filePath, file, {
           cacheControl: '3600',
-          upsert: false,
-          onUploadProgress: (progress) => {
-            const percent = (progress.loaded / progress.total) * 100;
-            setUploadProgress(prev => ({ ...prev, [transferId]: percent }));
-            onProgress?.(percent);
-          }
+          upsert: false
         });
 
+      clearInterval(progressInterval);
+
       if (uploadError) throw uploadError;
+
+      // Complete progress
+      setUploadProgress(prev => ({ ...prev, [transferId]: 100 }));
+      onProgress?.(100);
 
       // Update transfer status
       await updateTransferStatus(transferId, 'completed');

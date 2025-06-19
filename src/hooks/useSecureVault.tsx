@@ -114,7 +114,14 @@ export const useSecureVault = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setVaultItems(data || []);
+      
+      // Transform the data to match VaultItem interface
+      const transformedData: VaultItem[] = (data || []).map(item => ({
+        ...item,
+        item_type: item.item_type as 'clipboard' | 'file' | 'note'
+      }));
+      
+      setVaultItems(transformedData);
 
     } catch (error) {
       console.error('Failed to fetch vault items:', error);
