@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -25,7 +25,7 @@ interface DashboardLayoutProps {
 const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, signOut } = useAuth();
-  const location = useLocation();
+  const [location] = useLocation();
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: Home },
@@ -38,9 +38,9 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
   const isActive = (path: string) => {
     if (path === '/dashboard') {
-      return location.pathname === '/dashboard' || location.pathname === '/dashboard/';
+      return location === '/dashboard' || location === '/dashboard/';
     }
-    return location.pathname.startsWith(path);
+    return location?.startsWith?.(path) || false;
   };
 
   return (
@@ -79,14 +79,14 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-unilink-100 rounded-full flex items-center justify-center">
                 <span className="text-unilink-600 font-semibold">
-                  {user?.user_metadata?.first_name?.[0] || user?.email?.[0] || 'U'}
+                  {user?.email?.[0]?.toUpperCase() || 'U'}
                 </span>
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-900 truncate">
-                  {user?.user_metadata?.first_name} {user?.user_metadata?.last_name}
+                  {user?.email}
                 </p>
-                <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+                <p className="text-xs text-gray-500 truncate">User</p>
               </div>
             </div>
           </div>
