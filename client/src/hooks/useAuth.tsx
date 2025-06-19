@@ -62,7 +62,11 @@ export const useAuth = () => {
       }
       
       setUser(data.user);
-      navigate('/dashboard');
+      
+      // Small delay to ensure state is set before navigation
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 100);
       
       return { error: null };
     } catch (err) {
@@ -94,7 +98,11 @@ export const useAuth = () => {
       
       setUser(data.user);
       toast.success('Account created and signed in successfully!');
-      navigate('/dashboard');
+      
+      // Small delay to ensure state is set before navigation
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 100);
       
       return { error: null };
     } catch (err) {

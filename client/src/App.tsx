@@ -26,6 +26,7 @@ const App = () => (
           <Route path="/pricing" component={Pricing} />
           <Route path="/login" component={Login} />
           <Route path="/register" component={Register} />
+          <Route path="/dashboard" component={Dashboard} />
           <Route path="/dashboard/:rest*" component={Dashboard} />
           <Route component={NotFound} />
         </Switch>
