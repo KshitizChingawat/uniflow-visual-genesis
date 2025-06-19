@@ -1,6 +1,4 @@
-
-import { useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useState, useEffect } from 'react';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 
@@ -17,162 +15,287 @@ export interface AISuggestion {
 }
 
 export const useAIAssistant = () => {
-  const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<AISuggestion[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [assistantEnabled, setAssistantEnabled] = useState(true);
   const { user } = useAuth();
 
-  // Analyze clipboard content with AI
-  const analyzeClipboard = async (content: string, context?: any) => {
-    if (!user || !content.trim()) return null;
+  // Fetch AI suggestions
+  const fetchSuggestions = async () => {
+    if (!user) return;
+
+    const token = localStorage.getItem('auth_token');
+    if (!token) return;
 
     try {
-      setLoading(true);
-      const { data, error } = await supabase.functions.invoke('ai-assistant', {
-        body: {
-          content,
-          type: 'clipboard_analysis',
-          context
+      const response = await fetch('/api/ai-suggestions', {
+        headers: {
+          'Authorization': `Bearer ${token}`
         }
       });
 
-      if (error) throw error;
+      const data = await response.json();
 
-      if (data.success) {
-        toast.success('AI analysis complete');
-        return data.suggestion;
+      if (!response.ok) {
+        console.error('Fetch AI suggestions error:', data.error);
+        return;
       }
-    } catch (error) {
-      console.error('Error analyzing clipboard:', error);
-      toast.error('Failed to analyze clipboard content');
+
+      setSuggestions(data || []);
+    } catch (err) {
+      console.error('Fetch AI suggestions error:', err);
+    }
+  };
+
+  // Analyze clipboard content
+  const analyzeClipboardContent = async (content: string) => {
+    if (!user || !assistantEnabled) return;
+
+    const token = localStorage.getItem('auth_token');
+    if (!token) return;
+
+    try {
+      setLoading(true);
+
+      const response = await fetch('/api/ai-suggestions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          suggestion_type: 'clipboard_analysis',
+          content: { text: content }
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error('Analyze clipboard error:', data.error);
+        return;
+      }
+
+      await fetchSuggestions();
+      return data;
+    } catch (err) {
+      console.error('Analyze clipboard error:', err);
     } finally {
       setLoading(false);
     }
   };
 
   // Get file organization suggestions
-  const suggestFileOrganization = async (fileName: string, fileType: string, context?: any) => {
-    if (!user || !fileName) return null;
+  const getFileOrganizationSuggestion = async (fileName: string, fileType: string, fileSize: number) => {
+    if (!user || !assistantEnabled) return;
+
+    const token = localStorage.getItem('auth_token');
+    if (!token) return;
 
     try {
       setLoading(true);
-      const { data, error } = await supabase.functions.invoke('ai-assistant', {
-        body: {
-          content: fileName,
-          type: 'file_organization',
-          context: { fileType, ...context }
-        }
+
+      const response = await fetch('/api/ai-suggestions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          suggestion_type: 'file_organization',
+          content: { fileName, fileType, fileSize }
+        })
       });
 
-      if (error) throw error;
+      const data = await response.json();
 
-      if (data.success) {
-        return data.suggestion;
+      if (!response.ok) {
+        console.error('File organization suggestion error:', data.error);
+        return;
       }
-    } catch (error) {
-      console.error('Error getting file organization suggestions:', error);
-      toast.error('Failed to get organization suggestions');
+
+      await fetchSuggestions();
+      return data;
+    } catch (err) {
+      console.error('File organization suggestion error:', err);
     } finally {
       setLoading(false);
     }
   };
 
   // Get device recommendations
-  const recommendDevice = async (task: string, availableDevices: any[], context?: any) => {
-    if (!user || !task) return null;
+  const getDeviceRecommendations = async (deviceData: any) => {
+    if (!user || !assistantEnabled) return;
+
+    const token = localStorage.getItem('auth_token');
+    if (!token) return;
 
     try {
-      setLoading(true);
-      const { data, error } = await supabase.functions.invoke('ai-assistant', {
-        body: {
-          content: task,
-          type: 'device_recommendation',
-          context: { devices: availableDevices, ...context }
-        }
+      const response = await fetch('/api/ai-suggestions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          suggestion_type: 'device_recommendation',
+          content: deviceData
+        })
       });
 
-      if (error) throw error;
+      const data = await response.json();
 
-      if (data.success) {
-        return data.suggestion;
+      if (!response.ok) {
+        console.error('Device recommendation error:', data.error);
+        return;
       }
-    } catch (error) {
-      console.error('Error getting device recommendations:', error);
-      toast.error('Failed to get device recommendations');
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  // Fetch user's AI suggestions
-  const fetchSuggestions = async () => {
-    if (!user) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('ai_suggestions')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(20);
-
-      if (error) throw error;
-      
-      // Type assertion to ensure proper typing
-      const typedSuggestions = (data || []).map(item => ({
-        ...item,
-        suggestion_type: item.suggestion_type as AISuggestion['suggestion_type']
-      })) as AISuggestion[];
-      
-      setSuggestions(typedSuggestions);
-    } catch (error) {
-      console.error('Error fetching AI suggestions:', error);
+      return data;
+    } catch (err) {
+      console.error('Device recommendation error:', err);
     }
   };
 
   // Mark suggestion as used
-  const markSuggestionUsed = async (suggestionId: string, feedback?: number) => {
+  const markSuggestionUsed = async (suggestionId: string, feedbackScore?: number) => {
+    if (!user) return;
+
+    const token = localStorage.getItem('auth_token');
+    if (!token) return;
+
     try {
-      const { error } = await supabase
-        .from('ai_suggestions')
-        .update({ 
+      const response = await fetch(`/api/ai-suggestions/${suggestionId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
           used: true,
-          feedback_score: feedback 
+          feedback_score: feedbackScore
         })
-        .eq('id', suggestionId);
+      });
 
-      if (error) throw error;
-      
-      // Refresh suggestions
-      fetchSuggestions();
-    } catch (error) {
-      console.error('Error marking suggestion as used:', error);
-    }
-  };
+      if (!response.ok) {
+        const data = await response.json();
+        console.error('Mark suggestion used error:', data.error);
+        return;
+      }
 
-  // Provide feedback on suggestion
-  const provideFeedback = async (suggestionId: string, score: number) => {
-    try {
-      const { error } = await supabase
-        .from('ai_suggestions')
-        .update({ feedback_score: score })
-        .eq('id', suggestionId);
-
-      if (error) throw error;
+      await fetchSuggestions();
       toast.success('Feedback recorded');
-    } catch (error) {
-      console.error('Error providing feedback:', error);
-      toast.error('Failed to record feedback');
+    } catch (err) {
+      console.error('Mark suggestion used error:', err);
     }
   };
+
+  // Dismiss suggestion
+  const dismissSuggestion = async (suggestionId: string) => {
+    if (!user) return;
+
+    const token = localStorage.getItem('auth_token');
+    if (!token) return;
+
+    try {
+      const response = await fetch(`/api/ai-suggestions/${suggestionId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        console.error('Dismiss suggestion error:', data.error);
+        return;
+      }
+
+      await fetchSuggestions();
+    } catch (err) {
+      console.error('Dismiss suggestion error:', err);
+    }
+  };
+
+  // Toggle AI assistant
+  const toggleAssistant = (enabled: boolean) => {
+    setAssistantEnabled(enabled);
+    localStorage.setItem('aiAssistantEnabled', enabled.toString());
+    toast.success(enabled ? 'AI Assistant enabled' : 'AI Assistant disabled');
+  };
+
+  // Get suggestions by type
+  const getSuggestionsByType = (type: string) => {
+    return suggestions.filter(s => s.suggestion_type === type && !s.used);
+  };
+
+  // Get smart content analysis
+  const getSmartContentAnalysis = (content: string) => {
+    const analysis = {
+      type: 'unknown',
+      confidence: 0,
+      suggestions: []
+    };
+
+    // URL analysis
+    if (content.match(/https?:\/\/[^\s]+/)) {
+      analysis.type = 'url';
+      analysis.confidence = 0.9;
+      analysis.suggestions = ['Save to bookmarks', 'Share with team', 'Archive for later'];
+    }
+    // Email analysis
+    else if (content.match(/[\w.-]+@[\w.-]+\.\w+/)) {
+      analysis.type = 'email';
+      analysis.confidence = 0.85;
+      analysis.suggestions = ['Add to contacts', 'Send email', 'Save to CRM'];
+    }
+    // Phone number analysis
+    else if (content.match(/[\+]?[\d\s\-\(\)]{10,}/)) {
+      analysis.type = 'phone';
+      analysis.confidence = 0.8;
+      analysis.suggestions = ['Add to contacts', 'Make call', 'Send SMS'];
+    }
+    // Code analysis
+    else if (content.includes('function') || content.includes('class') || content.includes('import')) {
+      analysis.type = 'code';
+      analysis.confidence = 0.75;
+      analysis.suggestions = ['Save as snippet', 'Format code', 'Share with team'];
+    }
+    // Text analysis
+    else if (content.length > 50) {
+      analysis.type = 'text';
+      analysis.confidence = 0.6;
+      analysis.suggestions = ['Save as note', 'Create task', 'Share'];
+    }
+
+    return analysis;
+  };
+
+  // Initialize settings
+  useEffect(() => {
+    const savedEnabled = localStorage.getItem('aiAssistantEnabled');
+    if (savedEnabled !== null) {
+      setAssistantEnabled(savedEnabled === 'true');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (user && assistantEnabled) {
+      fetchSuggestions();
+    }
+  }, [user, assistantEnabled]);
 
   return {
-    loading,
     suggestions,
-    analyzeClipboard,
-    suggestFileOrganization,
-    recommendDevice,
-    fetchSuggestions,
+    loading,
+    assistantEnabled,
+    analyzeClipboardContent,
+    getFileOrganizationSuggestion,
+    getDeviceRecommendations,
     markSuggestionUsed,
-    provideFeedback
+    dismissSuggestion,
+    toggleAssistant,
+    getSuggestionsByType,
+    getSmartContentAnalysis,
+    fetchSuggestions
   };
 };

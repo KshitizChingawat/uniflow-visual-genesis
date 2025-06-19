@@ -50,6 +50,70 @@ export class MemStorage implements IStorage {
     this.aiSuggestions = new Map();
     this.bluetoothDevices = new Map();
     this.vaultItems = new Map();
+    
+    // Add sample data for demo
+    this.initializeSampleData();
+  }
+
+  private initializeSampleData() {
+    // Sample clipboard items
+    const sampleClipboard: ClipboardItem = {
+      id: 'clip-1',
+      user_id: '',
+      device_id: '',
+      content: 'https://github.com/username/awesome-project',
+      content_type: 'text',
+      sync_timestamp: new Date().toISOString(),
+      synced_to_devices: [],
+      created_at: new Date().toISOString()
+    };
+
+    // Sample file transfer
+    const sampleTransfer: FileTransfer = {
+      id: 'transfer-1', 
+      user_id: '',
+      sender_device_id: '',
+      receiver_device_id: '',
+      file_name: 'presentation.pdf',
+      file_size: 2048576,
+      file_type: 'application/pdf',
+      transfer_status: 'completed',
+      transfer_method: 'cloud',
+      created_at: new Date().toISOString(),
+      completed_at: new Date().toISOString()
+    };
+
+    // Sample AI suggestion
+    const sampleAI: AiSuggestion = {
+      id: 'ai-1',
+      user_id: '',
+      suggestion_type: 'clipboard_analysis',
+      content: { 
+        suggestion: 'This URL appears to be a GitHub repository. Would you like to bookmark it or share with your team?',
+        confidence: 0.9 
+      },
+      confidence_score: 0.9,
+      used: false,
+      created_at: new Date().toISOString()
+    };
+
+    // Sample vault item
+    const sampleVault: VaultItem = {
+      id: 'vault-1',
+      user_id: '',
+      item_type: 'note',
+      encrypted_content: 'Important meeting notes - Q4 planning session',
+      metadata: { category: 'work', priority: 'high' },
+      tags: ['work', 'meetings', 'Q4'],
+      created_at: new Date().toISOString(),
+      accessed_at: new Date().toISOString()
+    };
+
+    // Store sample data temporarily
+    this.clipboardItems.set('clip-1', sampleClipboard);
+    this.fileTransfers.set('transfer-1', sampleTransfer);
+    this.aiSuggestions.set('ai-1', sampleAI);
+    this.vaultItems.set('vault-1', sampleVault);
   }
 
   async getUser(id: string): Promise<User | undefined> {

@@ -245,6 +245,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Clipboard sync routes
+  app.get('/api/clipboard', authenticateToken, async (req: any, res) => {
+    try {
+      const items = await storage.getClipboardItems(req.user.userId);
+      res.json(items);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch clipboard items' });
+    }
+  });
+
+  app.post('/api/clipboard', authenticateToken, async (req: any, res) => {
+    try {
+      const clipboardData = { 
+        ...req.body, 
+        userId: req.user.userId,
+        syncTimestamp: new Date().toISOString()
+      };
+      const item = await storage.createClipboardItem(clipboardData);
+      res.json(item);
+    } catch (error) {
+      res.status(400).json({ error: 'Failed to create clipboard item' });
+    }
+  });
+
+  // File transfer routes
+  app.get('/api/file-transfers', authenticateToken, async (req: any, res) => {
+    try {
+      const transfers = await storage.getFileTransfers(req.user.userId);
+      res.json(transfers);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch file transfers' });
+    }
+  });
+
+  app.post('/api/file-transfers', authenticateToken, async (req: any, res) => {
+    try {
+      const transferData = {
+        userId: req.user.userId,
+        senderDeviceId: req.body.sender_device_id,
+        receiverDeviceId: req.body.receiver_device_id,
+        fileName: req.body.file?.name || 'Unknown',
+        fileSize: req.body.file?.size || 0,
+        fileType: req.body.file?.type,
+        transferStatus: 'pending',
+        transferMethod: req.body.transfer_method || 'cloud'
+      };
+      const transfer = await storage.createFileTransfer(transferData);
+      res.json(transfer);
+    } catch (error) {
+      res.status(400).json({ error: 'Failed to create file transfer' });
+    }
+  });
+
+  app.patch('/api/file-transfers/:id', authenticateToken, async (req: any, res) => {
+    try {
+      const transfer = await storage.updateFileTransfer(req.params.id, req.body);
+      if (!transfer) {
+        return res.status(404).json({ error: 'Transfer not found' });
+      }
+      res.json(transfer);
+    } catch (error) {
+      res.status(400).json({ error: 'Failed to update file transfer' });
+    }
+  });
+
+  // Sync trigger route
+  app.post('/api/sync/trigger', authenticateToken, async (req: any, res) => {
+    try {
+      // Simulate manual sync completion
+      res.json({ success: true, message: 'Sync completed' });
+    } catch (error) {
+      res.status(500).json({ error: 'Sync failed' });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

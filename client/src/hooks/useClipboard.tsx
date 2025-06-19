@@ -1,6 +1,4 @@
-
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { useDevices } from './useDevices';
 import { toast } from 'sonner';
@@ -23,96 +21,112 @@ export const useClipboard = () => {
   const { user } = useAuth();
   const { currentDevice } = useDevices();
 
+  // Fetch clipboard history
+  const fetchClipboardHistory = async () => {
+    if (!user) return;
+
+    const token = localStorage.getItem('auth_token');
+    if (!token) return;
+
+    try {
+      const response = await fetch('/api/clipboard', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error('Fetch clipboard error:', data.error);
+        return;
+      }
+
+      setClipboardHistory(data || []);
+    } catch (err) {
+      console.error('Fetch clipboard error:', err);
+    }
+  };
+
   // Sync clipboard content
   const syncClipboard = async (content: string, contentType: string = 'text') => {
     if (!user || !currentDevice || !content.trim()) return;
 
+    const token = localStorage.getItem('auth_token');
+    if (!token) return;
+
     try {
       setLoading(true);
       
-      const { data, error } = await supabase
-        .from('clipboard_sync')
-        .insert({
-          user_id: user.id,
+      const response = await fetch('/api/clipboard', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
           device_id: currentDevice.id,
           content,
-          content_type: contentType,
-          sync_timestamp: new Date().toISOString()
+          content_type: contentType
         })
-        .select()
-        .single();
+      });
 
-      if (error) throw error;
+      const data = await response.json();
 
-      // Log analytics
-      await supabase
-        .from('usage_analytics')
-        .insert({
-          user_id: user.id,
-          device_id: currentDevice.id,
-          action_type: 'clipboard_sync',
-          metadata: { content_length: content.length, content_type: contentType }
-        });
+      if (!response.ok) {
+        console.error('Sync clipboard error:', data.error);
+        toast.error('Failed to sync clipboard');
+        return;
+      }
 
+      await fetchClipboardHistory();
       toast.success('Clipboard synced successfully');
-      return data;
-    } catch (error) {
-      console.error('Error syncing clipboard:', error);
+    } catch (err) {
+      console.error('Sync clipboard error:', err);
       toast.error('Failed to sync clipboard');
     } finally {
       setLoading(false);
     }
   };
 
-  // Fetch clipboard history
-  const fetchClipboardHistory = async () => {
-    if (!user) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('clipboard_sync')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('sync_timestamp', { ascending: false })
-        .limit(50);
-
-      if (error) throw error;
-      setClipboardHistory(data || []);
-    } catch (error) {
-      console.error('Error fetching clipboard history:', error);
-      toast.error('Failed to fetch clipboard history');
-    }
-  };
-
-  // Copy to system clipboard
+  // Copy to clipboard
   const copyToClipboard = async (content: string) => {
     try {
       await navigator.clipboard.writeText(content);
       toast.success('Copied to clipboard');
-    } catch (error) {
-      console.error('Error copying to clipboard:', error);
+    } catch (err) {
+      console.error('Copy to clipboard error:', err);
       toast.error('Failed to copy to clipboard');
     }
   };
 
-  // Auto-sync from system clipboard (if supported)
-  const enableAutoSync = () => {
-    if ('clipboard' in navigator) {
-      // Note: Reading from clipboard requires user permission
-      // This is a simplified implementation
-      const interval = setInterval(async () => {
-        try {
-          const text = await navigator.clipboard.readText();
-          if (text && text !== clipboardHistory[0]?.content) {
-            syncClipboard(text);
-          }
-        } catch (error) {
-          // Clipboard read failed - user hasn't granted permission
-          console.log('Clipboard auto-sync not available');
-        }
-      }, 5000);
+  // Delete clipboard item
+  const deleteClipboardItem = async (itemId: string) => {
+    if (!user) return;
 
-      return () => clearInterval(interval);
+    const token = localStorage.getItem('auth_token');
+    if (!token) return;
+
+    try {
+      const response = await fetch(`/api/clipboard/${itemId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        console.error('Delete clipboard item error:', data.error);
+        toast.error('Failed to delete clipboard item');
+        return;
+      }
+
+      await fetchClipboardHistory();
+      toast.success('Clipboard item deleted');
+    } catch (err) {
+      console.error('Delete clipboard item error:', err);
+      toast.error('Failed to delete clipboard item');
     }
   };
 
@@ -122,37 +136,12 @@ export const useClipboard = () => {
     }
   }, [user]);
 
-  // Real-time subscription for clipboard updates
-  useEffect(() => {
-    if (!user) return;
-
-    const channel = supabase
-      .channel('clipboard-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'clipboard_sync',
-          filter: `user_id=eq.${user.id}`
-        },
-        () => {
-          fetchClipboardHistory();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user]);
-
   return {
     clipboardHistory,
     loading,
     syncClipboard,
-    fetchClipboardHistory,
     copyToClipboard,
-    enableAutoSync
+    deleteClipboardItem,
+    fetchClipboardHistory
   };
 };

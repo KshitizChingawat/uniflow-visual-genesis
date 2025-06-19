@@ -1,6 +1,4 @@
-
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { useDevices } from './useDevices';
 import { toast } from 'sonner';
@@ -24,162 +22,200 @@ export interface FileTransfer {
 export const useFileTransfer = () => {
   const [transfers, setTransfers] = useState<FileTransfer[]>([]);
   const [loading, setLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
   const { user } = useAuth();
-  const { currentDevice } = useDevices();
+  const { currentDevice, devices } = useDevices();
 
-  // Initiate file transfer
-  const initiateTransfer = async (
+  // Fetch file transfers
+  const fetchTransfers = async () => {
+    if (!user) return;
+
+    const token = localStorage.getItem('auth_token');
+    if (!token) return;
+
+    try {
+      const response = await fetch('/api/file-transfers', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error('Fetch transfers error:', data.error);
+        return;
+      }
+
+      setTransfers(data || []);
+    } catch (err) {
+      console.error('Fetch transfers error:', err);
+    }
+  };
+
+  // Start file transfer
+  const startFileTransfer = async (
     file: File,
-    receiverDeviceId?: string,
+    targetDeviceId?: string,
     transferMethod: 'cloud' | 'p2p' | 'local' = 'cloud'
   ) => {
     if (!user || !currentDevice) return;
 
+    const token = localStorage.getItem('auth_token');
+    if (!token) return;
+
     try {
       setLoading(true);
       
-      // Create file hash for integrity check
-      const arrayBuffer = await file.arrayBuffer();
-      const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      const fileHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      // Create FormData for file upload
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('sender_device_id', currentDevice.id);
+      formData.append('transfer_method', transferMethod);
+      if (targetDeviceId) {
+        formData.append('receiver_device_id', targetDeviceId);
+      }
 
-      const { data, error } = await supabase
-        .from('file_transfers')
-        .insert({
-          user_id: user.id,
-          sender_device_id: currentDevice.id,
-          receiver_device_id: receiverDeviceId,
-          file_name: file.name,
-          file_size: file.size,
-          file_type: file.type,
-          file_hash: fileHash,
-          transfer_method: transferMethod,
-          encrypted_metadata: {
-            original_name: file.name,
-            mime_type: file.type,
-            last_modified: file.lastModified
-          }
-        })
-        .select()
-        .single();
+      const response = await fetch('/api/file-transfers', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
 
-      if (error) throw error;
+      const data = await response.json();
 
-      // Log analytics
-      await supabase
-        .from('usage_analytics')
-        .insert({
-          user_id: user.id,
-          device_id: currentDevice.id,
-          action_type: 'file_transfer',
-          metadata: { 
-            file_size: file.size, 
-            file_type: file.type,
-            transfer_method: transferMethod
-          }
-        });
+      if (!response.ok) {
+        console.error('Start transfer error:', data.error);
+        toast.error('Failed to start file transfer');
+        return;
+      }
 
-      toast.success('File transfer initiated');
+      await fetchTransfers();
+      toast.success('File transfer started');
       return data;
-    } catch (error) {
-      console.error('Error initiating file transfer:', error);
-      toast.error('Failed to initiate file transfer');
+    } catch (err) {
+      console.error('Start transfer error:', err);
+      toast.error('Failed to start file transfer');
     } finally {
       setLoading(false);
     }
   };
 
-  // Update transfer status
-  const updateTransferStatus = async (
-    transferId: string, 
-    status: FileTransfer['transfer_status']
-  ) => {
-    try {
-      const updateData: any = { transfer_status: status };
-      if (status === 'completed') {
-        updateData.completed_at = new Date().toISOString();
-      }
-
-      const { error } = await supabase
-        .from('file_transfers')
-        .update(updateData)
-        .eq('id', transferId);
-
-      if (error) throw error;
-    } catch (error) {
-      console.error('Error updating transfer status:', error);
-    }
-  };
-
-  // Fetch user's file transfers
-  const fetchTransfers = async () => {
+  // Cancel file transfer
+  const cancelTransfer = async (transferId: string) => {
     if (!user) return;
 
-    try {
-      const { data, error } = await supabase
-        .from('file_transfers')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(100);
+    const token = localStorage.getItem('auth_token');
+    if (!token) return;
 
-      if (error) throw error;
-      setTransfers((data || []) as FileTransfer[]);
-    } catch (error) {
-      console.error('Error fetching transfers:', error);
-      toast.error('Failed to fetch file transfers');
+    try {
+      const response = await fetch(`/api/file-transfers/${transferId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          transfer_status: 'cancelled'
+        })
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        console.error('Cancel transfer error:', data.error);
+        toast.error('Failed to cancel transfer');
+        return;
+      }
+
+      await fetchTransfers();
+      toast.success('Transfer cancelled');
+    } catch (err) {
+      console.error('Cancel transfer error:', err);
+      toast.error('Failed to cancel transfer');
     }
   };
 
-  // Cancel transfer
-  const cancelTransfer = async (transferId: string) => {
+  // Download file
+  const downloadFile = async (transferId: string, fileName: string) => {
+    if (!user) return;
+
+    const token = localStorage.getItem('auth_token');
+    if (!token) return;
+
     try {
-      await updateTransferStatus(transferId, 'cancelled');
-      toast.success('Transfer cancelled');
-    } catch (error) {
-      console.error('Error cancelling transfer:', error);
-      toast.error('Failed to cancel transfer');
+      const response = await fetch(`/api/file-transfers/${transferId}/download`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        toast.error('Failed to download file');
+        return;
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      toast.success('File downloaded successfully');
+    } catch (err) {
+      console.error('Download file error:', err);
+      toast.error('Failed to download file');
     }
+  };
+
+  // Get transfer status color
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return 'text-green-600';
+      case 'in_progress':
+        return 'text-blue-600';
+      case 'failed':
+      case 'cancelled':
+        return 'text-red-600';
+      default:
+        return 'text-yellow-600';
+    }
+  };
+
+  // Format file size
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   useEffect(() => {
     if (user) {
       fetchTransfers();
+      // Poll for updates every 5 seconds
+      const interval = setInterval(fetchTransfers, 5000);
+      return () => clearInterval(interval);
     }
-  }, [user]);
-
-  // Real-time subscription for transfer updates
-  useEffect(() => {
-    if (!user) return;
-
-    const channel = supabase
-      .channel('file-transfers-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'file_transfers',
-          filter: `user_id=eq.${user.id}`
-        },
-        () => {
-          fetchTransfers();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
   }, [user]);
 
   return {
     transfers,
     loading,
-    initiateTransfer,
-    updateTransferStatus,
-    fetchTransfers,
-    cancelTransfer
+    uploadProgress,
+    startFileTransfer,
+    cancelTransfer,
+    downloadFile,
+    getStatusColor,
+    formatFileSize,
+    fetchTransfers
   };
 };

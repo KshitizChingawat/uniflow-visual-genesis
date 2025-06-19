@@ -1,177 +1,261 @@
-
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
+import { useAuth } from './useAuth';
 import { useClipboard } from './useClipboard';
 import { useFileTransfer } from './useFileTransfer';
-import { useDevices } from './useDevices';
-import { useAIAssistant } from './useAIAssistant';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 
 export const useSmartSync = () => {
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(true);
-  const [smartSuggestionsEnabled, setSmartSuggestionsEnabled] = useState(true);
-  const [processingQueue, setProcessingQueue] = useState<string[]>([]);
-  
+  const [preferences, setPreferences] = useState({
+    autoClipboard: true,
+    autoFiles: true,
+    smartSuggestions: true,
+    syncFrequency: 5000
+  });
   const { user } = useAuth();
-  const { clipboardHistory, syncClipboard } = useClipboard();
-  const { devices, currentDevice } = useDevices();
-  const { analyzeClipboard, suggestFileOrganization, recommendDevice } = useAIAssistant();
+  const { clipboardHistory } = useClipboard();
+  const { transfers } = useFileTransfer();
 
-  // Smart clipboard sync with AI analysis
-  const smartClipboardSync = useCallback(async (content: string) => {
-    if (!smartSuggestionsEnabled || !content.trim()) return;
-
-    try {
-      // Analyze clipboard content with AI
-      const analysis = await analyzeClipboard(content, {
-        currentDevice: currentDevice?.device_name,
-        availableDevices: devices.map(d => d.device_name)
-      });
-
-      if (analysis) {
-        // Show AI suggestions as a toast or notification
-        if (analysis.actions && analysis.actions.length > 0) {
-          toast.success(`Smart suggestion: ${analysis.actions[0]}`, {
-            description: analysis.summary,
-            duration: 5000
-          });
-        }
-
-        // Auto-categorize and tag the clipboard content
-        await supabase.from('ai_analytics').insert({
-          user_id: user?.id,
-          device_id: currentDevice?.id,
-          event_type: 'clipboard_sync',
-          event_data: { content_length: content.length, analysis },
-          ai_context: { suggestion_used: true },
-          success: true
-        });
-      }
-
-      // Proceed with regular sync
-      await syncClipboard(content);
-
-    } catch (error) {
-      console.error('Smart clipboard sync error:', error);
-      // Fallback to regular sync
-      await syncClipboard(content);
-    }
-  }, [smartSuggestionsEnabled, analyzeClipboard, currentDevice, devices, syncClipboard, user]);
-
-  // Smart file organization suggestions
-  const getSmartFileOrganization = useCallback(async (file: File) => {
-    if (!smartSuggestionsEnabled) return null;
+  // Get smart file organization suggestions
+  const getSmartFileOrganization = async (file: File) => {
+    if (!user) return null;
 
     try {
-      const suggestions = await suggestFileOrganization(
-        file.name, 
-        file.type,
-        {
-          size: file.size,
-          lastModified: file.lastModified,
-          currentDevice: currentDevice?.device_name
-        }
-      );
-
-      if (suggestions) {
-        // Log AI analytics
-        await supabase.from('ai_analytics').insert({
-          user_id: user?.id,
-          device_id: currentDevice?.id,
-          event_type: 'file_transfer',
-          event_data: { file_name: file.name, file_size: file.size },
-          ai_context: { organization_suggested: true, suggestions },
-          success: true
-        });
-      }
+      const suggestions = {
+        suggestedFolder: getFileCategory(file.name, file.type),
+        tags: generateFileTags(file.name, file.type),
+        priority: calculateFilePriority(file.size, file.type),
+        autoActions: getAutoActions(file.type)
+      };
 
       return suggestions;
-    } catch (error) {
-      console.error('Smart file organization error:', error);
+    } catch (err) {
+      console.error('Smart organization error:', err);
       return null;
     }
-  }, [smartSuggestionsEnabled, suggestFileOrganization, currentDevice, user]);
+  };
 
-  // Smart device recommendation
-  const getDeviceRecommendation = useCallback(async (task: string, context?: any) => {
-    if (!smartSuggestionsEnabled || devices.length <= 1) return null;
-
-    try {
-      const recommendation = await recommendDevice(task, devices, context);
-
-      if (recommendation) {
-        // Log AI analytics
-        await supabase.from('ai_analytics').insert({
-          user_id: user?.id,
-          device_id: currentDevice?.id,
-          event_type: 'device_switch',
-          event_data: { task, recommended_device: recommendation.recommended_device },
-          ai_context: { recommendation },
-          success: true
-        });
-      }
-
-      return recommendation;
-    } catch (error) {
-      console.error('Device recommendation error:', error);
-      return null;
+  // Get file category based on type and name
+  const getFileCategory = (fileName: string, fileType: string) => {
+    const extension = fileName.split('.').pop()?.toLowerCase() || '';
+    
+    if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'webp'].includes(extension)) {
+      return 'Images';
     }
-  }, [smartSuggestionsEnabled, recommendDevice, devices, currentDevice, user]);
+    if (['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm'].includes(extension)) {
+      return 'Videos';
+    }
+    if (['mp3', 'wav', 'flac', 'aac', 'ogg'].includes(extension)) {
+      return 'Audio';
+    }
+    if (['pdf', 'doc', 'docx', 'txt', 'rtf'].includes(extension)) {
+      return 'Documents';
+    }
+    if (['zip', 'rar', '7z', 'tar', 'gz'].includes(extension)) {
+      return 'Archives';
+    }
+    if (['exe', 'msi', 'dmg', 'pkg', 'deb', 'rpm'].includes(extension)) {
+      return 'Applications';
+    }
+    
+    return 'Other';
+  };
 
-  // Auto-detect and sync clipboard changes (with proper error handling)
-  useEffect(() => {
-    if (!autoSyncEnabled || !currentDevice) return;
+  // Generate smart tags for files
+  const generateFileTags = (fileName: string, fileType: string) => {
+    const tags = [];
+    const name = fileName.toLowerCase();
+    
+    if (name.includes('screenshot')) tags.push('screenshot');
+    if (name.includes('photo')) tags.push('photo');
+    if (name.includes('document')) tags.push('document');
+    if (name.includes('download')) tags.push('download');
+    if (name.includes('work')) tags.push('work');
+    if (name.includes('personal')) tags.push('personal');
+    if (name.includes('backup')) tags.push('backup');
+    if (name.includes('temp')) tags.push('temporary');
+    
+    // Add date-based tags
+    const now = new Date();
+    tags.push(`${now.getFullYear()}`);
+    tags.push(`${now.toLocaleString('default', { month: 'long' })}`);
+    
+    return tags;
+  };
 
-    let lastClipboardContent = '';
+  // Calculate file priority
+  const calculateFilePriority = (fileSize: number, fileType: string) => {
+    if (fileSize > 100 * 1024 * 1024) return 'high'; // Files > 100MB
+    if (fileType.includes('image') || fileType.includes('video')) return 'medium';
+    return 'low';
+  };
 
-    const checkClipboard = async () => {
-      try {
-        if ('clipboard' in navigator && 'readText' in navigator.clipboard) {
-          const content = await navigator.clipboard.readText();
-          
-          if (content && content !== lastClipboardContent && content !== clipboardHistory[0]?.content) {
-            lastClipboardContent = content;
-            await smartClipboardSync(content);
-          }
-        }
-      } catch (error) {
-        // Clipboard access not available or denied - this is expected in many browsers
-        console.log('Clipboard auto-sync not available');
-      }
+  // Get auto actions for file types
+  const getAutoActions = (fileType: string) => {
+    const actions = [];
+    
+    if (fileType.includes('image')) {
+      actions.push('compress', 'backup');
+    }
+    if (fileType.includes('document')) {
+      actions.push('backup', 'sync');
+    }
+    if (fileType.includes('video')) {
+      actions.push('compress');
+    }
+    
+    return actions;
+  };
+
+  // Analyze clipboard content for smart suggestions
+  const analyzeClipboardContent = (content: string) => {
+    const suggestions = [];
+    
+    // URL detection
+    if (content.match(/https?:\/\/[^\s]+/)) {
+      suggestions.push({
+        type: 'url',
+        action: 'bookmark',
+        description: 'Save this URL to bookmarks',
+        content: content
+      });
+    }
+    
+    // Email detection
+    if (content.match(/[\w.-]+@[\w.-]+\.\w+/)) {
+      suggestions.push({
+        type: 'email',
+        action: 'contact',
+        description: 'Add to contacts',
+        content: content
+      });
+    }
+    
+    // Phone number detection
+    if (content.match(/[\+]?[\d\s\-\(\)]{10,}/)) {
+      suggestions.push({
+        type: 'phone',
+        action: 'contact',
+        description: 'Add to contacts',
+        content: content
+      });
+    }
+    
+    // Code detection
+    if (content.includes('function') || content.includes('class') || content.includes('import')) {
+      suggestions.push({
+        type: 'code',
+        action: 'save',
+        description: 'Save to code snippets',
+        content: content
+      });
+    }
+    
+    return suggestions;
+  };
+
+  // Get sync recommendations
+  const getSyncRecommendations = () => {
+    const recommendations = [];
+    
+    // Based on clipboard history
+    if (clipboardHistory.length > 10) {
+      recommendations.push({
+        type: 'cleanup',
+        priority: 'medium',
+        description: 'Clean up old clipboard items',
+        action: 'cleanup_clipboard'
+      });
+    }
+    
+    // Based on file transfers
+    const pendingTransfers = transfers.filter(t => t.transfer_status === 'pending');
+    if (pendingTransfers.length > 0) {
+      recommendations.push({
+        type: 'transfer',
+        priority: 'high',
+        description: `${pendingTransfers.length} file transfers pending`,
+        action: 'check_transfers'
+      });
+    }
+    
+    // Storage optimization
+    const totalFiles = transfers.length;
+    if (totalFiles > 50) {
+      recommendations.push({
+        type: 'storage',
+        priority: 'medium',
+        description: 'Consider archiving old files',
+        action: 'archive_files'
+      });
+    }
+    
+    return recommendations;
+  };
+
+  // Enable/disable auto sync
+  const toggleAutoSync = (enabled: boolean) => {
+    setAutoSyncEnabled(enabled);
+    localStorage.setItem('autoSyncEnabled', enabled.toString());
+    toast.success(enabled ? 'Auto sync enabled' : 'Auto sync disabled');
+  };
+
+  // Update preferences
+  const updatePreferences = (newPreferences: Partial<typeof preferences>) => {
+    const updated = { ...preferences, ...newPreferences };
+    setPreferences(updated);
+    localStorage.setItem('syncPreferences', JSON.stringify(updated));
+    toast.success('Preferences updated');
+  };
+
+  // Get device sync status
+  const getDeviceSyncStatus = () => {
+    return {
+      lastSync: new Date().toISOString(),
+      syncedItems: clipboardHistory.length + transfers.length,
+      pendingItems: transfers.filter(t => t.transfer_status === 'pending').length,
+      errors: 0
     };
+  };
 
-    // Check clipboard every 3 seconds
-    const interval = setInterval(checkClipboard, 3000);
-
-    return () => clearInterval(interval);
-  }, [autoSyncEnabled, currentDevice, clipboardHistory, smartClipboardSync]);
-
-  // Process sync queue
-  const processQueue = useCallback(async () => {
-    if (processingQueue.length === 0) return;
-
-    const itemId = processingQueue[0];
-    setProcessingQueue(prev => prev.slice(1));
-
-    // Process the queued item (placeholder for future queue processing logic)
-    console.log('Processing queued item:', itemId);
-  }, [processingQueue]);
-
+  // Initialize preferences from localStorage
   useEffect(() => {
-    if (processingQueue.length > 0) {
-      processQueue();
+    const savedAutoSync = localStorage.getItem('autoSyncEnabled');
+    const savedPreferences = localStorage.getItem('syncPreferences');
+    
+    if (savedAutoSync) {
+      setAutoSyncEnabled(savedAutoSync === 'true');
     }
-  }, [processingQueue, processQueue]);
+    
+    if (savedPreferences) {
+      try {
+        setPreferences(JSON.parse(savedPreferences));
+      } catch (err) {
+        console.error('Failed to parse saved preferences:', err);
+      }
+    }
+  }, []);
+
+  // Update suggestions based on content changes
+  useEffect(() => {
+    if (user && preferences.smartSuggestions) {
+      const recommendations = getSyncRecommendations();
+      setSuggestions(recommendations);
+    }
+  }, [user, clipboardHistory, transfers, preferences.smartSuggestions]);
 
   return {
+    suggestions,
+    loading,
     autoSyncEnabled,
-    setAutoSyncEnabled,
-    smartSuggestionsEnabled,
-    setSmartSuggestionsEnabled,
-    smartClipboardSync,
+    preferences,
     getSmartFileOrganization,
-    getDeviceRecommendation,
-    processingQueue: processingQueue.length
+    analyzeClipboardContent,
+    getSyncRecommendations,
+    toggleAutoSync,
+    updatePreferences,
+    getDeviceSyncStatus
   };
 };

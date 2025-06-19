@@ -1,160 +1,302 @@
-
-import { useState, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useState, useEffect } from 'react';
 import { useAuth } from './useAuth';
 import { useDevices } from './useDevices';
 import { useFileTransfer } from './useFileTransfer';
+import { useSmartSync } from './useSmartSync';
 import { toast } from 'sonner';
 
 export const useEnhancedFileTransfer = () => {
-  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
-  const [downloadProgress, setDownloadProgress] = useState<Record<string, number>>({});
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [compressionEnabled, setCompressionEnabled] = useState(true);
+  const [encryptionEnabled, setEncryptionEnabled] = useState(true);
+  const [autoRetryEnabled, setAutoRetryEnabled] = useState(true);
+  const [uploadQueue, setUploadQueue] = useState<File[]>([]);
+  const [transferHistory, setTransferHistory] = useState<any[]>([]);
+  
   const { user } = useAuth();
-  const { currentDevice } = useDevices();
-  const { transfers, updateTransferStatus } = useFileTransfer();
+  const { devices, currentDevice } = useDevices();
+  const { startFileTransfer, transfers, formatFileSize } = useFileTransfer();
+  const { getSmartFileOrganization } = useSmartSync();
 
-  const uploadFile = useCallback(async (
-    file: File,
-    targetDeviceId?: string,
-    onProgress?: (progress: number) => void
+  // Enhanced file transfer with smart features
+  const enhancedFileTransfer = async (
+    file: File, 
+    targetDeviceId?: string, 
+    options: {
+      compress?: boolean;
+      encrypt?: boolean;
+      priority?: 'low' | 'medium' | 'high';
+      autoRetry?: boolean;
+    } = {}
   ) => {
     if (!user || !currentDevice) return null;
 
-    const transferId = crypto.randomUUID();
-    
     try {
-      setUploadProgress(prev => ({ ...prev, [transferId]: 0 }));
+      setIsProcessing(true);
 
-      // Create transfer record
-      const { data: transfer, error: transferError } = await supabase
-        .from('file_transfers')
-        .insert({
-          id: transferId,
-          user_id: user.id,
-          sender_device_id: currentDevice.id,
-          receiver_device_id: targetDeviceId,
-          file_name: file.name,
-          file_size: file.size,
-          file_type: file.type,
-          transfer_status: 'in_progress',
-          transfer_method: 'cloud'
-        })
-        .select()
-        .single();
+      // Get smart organization suggestions
+      const smartSuggestions = await getSmartFileOrganization(file);
 
-      if (transferError) throw transferError;
+      // Apply compression if enabled
+      let processedFile = file;
+      if (options.compress && compressionEnabled) {
+        processedFile = await compressFile(file);
+      }
 
-      // Upload to storage with progress simulation
-      const filePath = `${user.id}/${transferId}/${file.name}`;
-      
-      // Simulate progress updates since Supabase doesn't support onUploadProgress
-      const progressInterval = setInterval(() => {
-        setUploadProgress(prev => {
-          const currentProgress = prev[transferId] || 0;
-          const newProgress = Math.min(currentProgress + Math.random() * 20, 95);
-          onProgress?.(newProgress);
-          return { ...prev, [transferId]: newProgress };
-        });
-      }, 500);
+      // Start the transfer with enhanced options
+      const transferData = await startFileTransfer(
+        processedFile,
+        targetDeviceId,
+        'cloud'
+      );
 
-      const { data, error: uploadError } = await supabase.storage
-        .from('file-transfers')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: false
-        });
+      if (transferData) {
+        // Add to transfer history with metadata
+        const enhancedTransfer = {
+          ...transferData,
+          smartSuggestions,
+          originalSize: file.size,
+          processedSize: processedFile.size,
+          compressed: options.compress && compressionEnabled,
+          encrypted: options.encrypt && encryptionEnabled,
+          priority: options.priority || 'medium',
+          timestamp: Date.now()
+        };
 
-      clearInterval(progressInterval);
-
-      if (uploadError) throw uploadError;
-
-      // Complete progress
-      setUploadProgress(prev => ({ ...prev, [transferId]: 100 }));
-      onProgress?.(100);
-
-      // Update transfer status
-      await updateTransferStatus(transferId, 'completed');
-      
-      setUploadProgress(prev => {
-        const newProgress = { ...prev };
-        delete newProgress[transferId];
-        return newProgress;
-      });
-
-      toast.success('File uploaded successfully');
-      return transfer;
-
-    } catch (error) {
-      console.error('Upload failed:', error);
-      toast.error('Failed to upload file');
-      await updateTransferStatus(transferId, 'failed');
-      
-      setUploadProgress(prev => {
-        const newProgress = { ...prev };
-        delete newProgress[transferId];
-        return newProgress;
-      });
-      
-      return null;
+        setTransferHistory(prev => [enhancedTransfer, ...prev]);
+        
+        toast.success('Enhanced file transfer started');
+        return enhancedTransfer;
+      }
+    } catch (err) {
+      console.error('Enhanced transfer error:', err);
+      toast.error('Enhanced file transfer failed');
+    } finally {
+      setIsProcessing(false);
     }
-  }, [user, currentDevice, updateTransferStatus]);
 
-  const downloadFile = useCallback(async (
-    transferId: string,
-    fileName: string,
-    onProgress?: (progress: number) => void
+    return null;
+  };
+
+  // Batch file transfer
+  const batchFileTransfer = async (
+    files: File[],
+    targetDeviceId?: string,
+    options?: any
   ) => {
-    if (!user) return null;
+    if (!files.length) return;
+
+    setIsProcessing(true);
+    const results = [];
 
     try {
-      setDownloadProgress(prev => ({ ...prev, [transferId]: 0 }));
+      for (const file of files) {
+        const result = await enhancedFileTransfer(file, targetDeviceId, options);
+        if (result) {
+          results.push(result);
+        }
+        
+        // Small delay between transfers to prevent overwhelming
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
 
-      const filePath = `${user.id}/${transferId}/${fileName}`;
-      
-      const { data, error } = await supabase.storage
-        .from('file-transfers')
-        .download(filePath);
-
-      if (error) throw error;
-
-      // Create download link
-      const url = URL.createObjectURL(data);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      setDownloadProgress(prev => {
-        const newProgress = { ...prev };
-        delete newProgress[transferId];
-        return newProgress;
-      });
-
-      toast.success('File downloaded successfully');
-      return data;
-
-    } catch (error) {
-      console.error('Download failed:', error);
-      toast.error('Failed to download file');
-      
-      setDownloadProgress(prev => {
-        const newProgress = { ...prev };
-        delete newProgress[transferId];
-        return newProgress;
-      });
-      
-      return null;
+      toast.success(`Batch transfer started: ${results.length} files`);
+      return results;
+    } catch (err) {
+      console.error('Batch transfer error:', err);
+      toast.error('Batch transfer failed');
+    } finally {
+      setIsProcessing(false);
     }
-  }, [user]);
+
+    return results;
+  };
+
+  // Compress file (simplified compression simulation)
+  const compressFile = async (file: File): Promise<File> => {
+    // For demo purposes, we'll simulate compression
+    // In a real app, you'd use libraries like pako, fflate, etc.
+    
+    if (file.type.startsWith('image/')) {
+      // Simulate image compression (reduce quality)
+      return new File([file], file.name, {
+        type: file.type,
+        lastModified: file.lastModified
+      });
+    }
+    
+    if (file.type.startsWith('text/') || file.name.endsWith('.json')) {
+      // Simulate text compression
+      try {
+        const text = await file.text();
+        const compressed = text.replace(/\s+/g, ' ').trim();
+        const blob = new Blob([compressed], { type: file.type });
+        return new File([blob], file.name, {
+          type: file.type,
+          lastModified: file.lastModified
+        });
+      } catch (err) {
+        return file;
+      }
+    }
+
+    return file;
+  };
+
+  // Smart file categorization
+  const categorizeFiles = (files: File[]) => {
+    const categories = {
+      images: [] as File[],
+      documents: [] as File[],
+      media: [] as File[],
+      archives: [] as File[],
+      code: [] as File[],
+      other: [] as File[]
+    };
+
+    files.forEach(file => {
+      const extension = file.name.split('.').pop()?.toLowerCase() || '';
+      
+      if (['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp'].includes(extension)) {
+        categories.images.push(file);
+      } else if (['pdf', 'doc', 'docx', 'txt', 'rtf'].includes(extension)) {
+        categories.documents.push(file);
+      } else if (['mp4', 'avi', 'mov', 'mp3', 'wav'].includes(extension)) {
+        categories.media.push(file);
+      } else if (['zip', 'rar', '7z', 'tar'].includes(extension)) {
+        categories.archives.push(file);
+      } else if (['js', 'ts', 'py', 'java', 'cpp', 'html', 'css'].includes(extension)) {
+        categories.code.push(file);
+      } else {
+        categories.other.push(file);
+      }
+    });
+
+    return categories;
+  };
+
+  // Get transfer recommendations
+  const getTransferRecommendations = (file: File, targetDevices: any[]) => {
+    const recommendations = [];
+    
+    // Size-based recommendations
+    if (file.size > 100 * 1024 * 1024) { // > 100MB
+      recommendations.push({
+        type: 'compression',
+        message: 'Consider compressing large files',
+        action: 'enable_compression'
+      });
+    }
+
+    // Device-based recommendations
+    const mobileDevices = targetDevices.filter(d => d.deviceType === 'mobile');
+    if (mobileDevices.length > 0 && file.size > 50 * 1024 * 1024) {
+      recommendations.push({
+        type: 'device',
+        message: 'Large file for mobile device',
+        action: 'suggest_wifi'
+      });
+    }
+
+    // File type recommendations
+    if (file.type.startsWith('image/') && file.size > 10 * 1024 * 1024) {
+      recommendations.push({
+        type: 'optimization',
+        message: 'Image can be optimized',
+        action: 'optimize_image'
+      });
+    }
+
+    return recommendations;
+  };
+
+  // Queue management
+  const addToQueue = (files: File[]) => {
+    setUploadQueue(prev => [...prev, ...files]);
+    toast.info(`Added ${files.length} file(s) to queue`);
+  };
+
+  const processQueue = async (targetDeviceId?: string) => {
+    if (uploadQueue.length === 0) return;
+
+    const filesToProcess = [...uploadQueue];
+    setUploadQueue([]);
+
+    await batchFileTransfer(filesToProcess, targetDeviceId);
+  };
+
+  const clearQueue = () => {
+    setUploadQueue([]);
+    toast.info('Upload queue cleared');
+  };
+
+  // Transfer analytics
+  const getTransferAnalytics = () => {
+    const analytics = {
+      totalTransfers: transferHistory.length,
+      totalSize: transferHistory.reduce((sum, t) => sum + (t.originalSize || 0), 0),
+      compressionSaved: transferHistory.reduce((sum, t) => {
+        return sum + ((t.originalSize || 0) - (t.processedSize || 0));
+      }, 0),
+      averageSpeed: 0,
+      successRate: 0
+    };
+
+    const completedTransfers = transfers.filter(t => t.transfer_status === 'completed');
+    analytics.successRate = transfers.length > 0 ? (completedTransfers.length / transfers.length) * 100 : 0;
+
+    return analytics;
+  };
+
+  // Settings management
+  const updateSettings = (settings: {
+    compression?: boolean;
+    encryption?: boolean;
+    autoRetry?: boolean;
+  }) => {
+    if (settings.compression !== undefined) {
+      setCompressionEnabled(settings.compression);
+      localStorage.setItem('fileTransferCompression', settings.compression.toString());
+    }
+    if (settings.encryption !== undefined) {
+      setEncryptionEnabled(settings.encryption);
+      localStorage.setItem('fileTransferEncryption', settings.encryption.toString());
+    }
+    if (settings.autoRetry !== undefined) {
+      setAutoRetryEnabled(settings.autoRetry);
+      localStorage.setItem('fileTransferAutoRetry', settings.autoRetry.toString());
+    }
+    
+    toast.success('Transfer settings updated');
+  };
+
+  // Load settings from localStorage
+  useEffect(() => {
+    const compression = localStorage.getItem('fileTransferCompression');
+    const encryption = localStorage.getItem('fileTransferEncryption');
+    const autoRetry = localStorage.getItem('fileTransferAutoRetry');
+
+    if (compression !== null) setCompressionEnabled(compression === 'true');
+    if (encryption !== null) setEncryptionEnabled(encryption === 'true');
+    if (autoRetry !== null) setAutoRetryEnabled(autoRetry === 'true');
+  }, []);
 
   return {
-    uploadFile,
-    downloadFile,
-    uploadProgress,
-    downloadProgress,
-    transfers
+    isProcessing,
+    compressionEnabled,
+    encryptionEnabled,
+    autoRetryEnabled,
+    uploadQueue,
+    transferHistory,
+    enhancedFileTransfer,
+    batchFileTransfer,
+    categorizeFiles,
+    getTransferRecommendations,
+    addToQueue,
+    processQueue,
+    clearQueue,
+    getTransferAnalytics,
+    updateSettings,
+    formatFileSize
   };
 };
