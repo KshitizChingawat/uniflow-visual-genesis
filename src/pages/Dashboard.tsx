@@ -1,4 +1,3 @@
-
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Loader2 } from 'lucide-react';
@@ -10,6 +9,7 @@ import FileTransferPage from '@/components/dashboard/FileTransferPage';
 import AnalyticsPage from '@/components/dashboard/AnalyticsPage';
 import SecurityPage from '@/components/dashboard/SecurityPage';
 import SettingsPage from '@/components/dashboard/SettingsPage';
+import SmartSyncDashboard from '@/components/dashboard/SmartSyncDashboard';
 
 const Dashboard = () => {
   const { user, loading } = useAuth();
@@ -36,6 +36,7 @@ const Dashboard = () => {
         <Route path="/analytics" element={<AnalyticsPage />} />
         <Route path="/security" element={<SecurityPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/smart-sync" element={<SmartSyncDashboard />} />
       </Routes>
     </DashboardLayout>
   );
