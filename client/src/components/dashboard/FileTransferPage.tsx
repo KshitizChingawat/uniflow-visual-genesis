@@ -12,7 +12,7 @@ import { FileTransfer } from '@shared/schema';
 const FileTransferPage = () => {
   const { transfers, loading, startFileTransfer, cancelTransfer } = useFileTransfer();
   const { devices } = useDevices();
-  const [selectedDevice, setSelectedDevice] = useState<string>('');
+  const [selectedDevice, setSelectedDevice] = useState<string>('all');
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -23,7 +23,8 @@ const FileTransferPage = () => {
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      await startFileTransfer(file, selectedDevice || undefined);
+      const targetDevice = selectedDevice === 'all' ? undefined : selectedDevice;
+      await startFileTransfer(file, targetDevice);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -36,7 +37,8 @@ const FileTransferPage = () => {
     
     const files = Array.from(event.dataTransfer.files);
     for (const file of files) {
-      await startFileTransfer(file, selectedDevice || undefined);
+      const targetDevice = selectedDevice === 'all' ? undefined : selectedDevice;
+      await startFileTransfer(file, targetDevice);
     }
   };
 
@@ -130,7 +132,7 @@ const FileTransferPage = () => {
                 <SelectValue placeholder="Send to all devices" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All connected devices</SelectItem>
+                <SelectItem value="all">All connected devices</SelectItem>
                 {devices.map((device) => (
                   <SelectItem key={device.id} value={device.id}>
                     {device.deviceName} ({device.deviceType})
