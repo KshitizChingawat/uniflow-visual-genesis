@@ -243,8 +243,10 @@ const AnalyticsPage = () => {
                         <p className="font-medium">{new Date(transfer.created_at).toLocaleString()}</p>
                       </div>
                       <div>
-                        <p className="text-muted-foreground">Updated</p>
-                        <p className="font-medium">{new Date(transfer.updated_at).toLocaleString()}</p>
+                        <p className="text-muted-foreground">Completed</p>
+                        <p className="font-medium">
+                          {transfer.completed_at ? new Date(transfer.completed_at).toLocaleString() : 'Not completed'}
+                        </p>
                       </div>
                     </div>
                   </div>
