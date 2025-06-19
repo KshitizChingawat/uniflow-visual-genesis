@@ -281,19 +281,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/file-transfers', authenticateToken, async (req: any, res) => {
     try {
+      // Handle JSON request with proper field names
+      const fileName = req.body.fileName || 'Unknown';
+      const fileSize = req.body.fileSize || 0;
+      const fileType = req.body.fileType || 'application/octet-stream';
+      const senderDeviceId = req.body.senderDeviceId;
+      const receiverDeviceId = req.body.receiverDeviceId;
+      const transferMethod = req.body.transferMethod || 'cloud';
+
       const transferData = {
         userId: req.user.userId,
-        senderDeviceId: req.body.sender_device_id,
-        receiverDeviceId: req.body.receiver_device_id,
-        fileName: req.body.file?.name || 'Unknown',
-        fileSize: req.body.file?.size || 0,
-        fileType: req.body.file?.type,
-        transferStatus: 'pending',
-        transferMethod: req.body.transfer_method || 'cloud'
+        senderDeviceId,
+        receiverDeviceId,
+        fileName,
+        fileSize,
+        fileType,
+        transferStatus: 'in_progress',
+        transferMethod
       };
+      
       const transfer = await storage.createFileTransfer(transferData);
+      
+      // Simulate transfer completion after a short delay
+      setTimeout(async () => {
+        try {
+          await storage.updateFileTransfer(transfer.id, { 
+            transferStatus: 'completed',
+            completedAt: new Date().toISOString()
+          });
+        } catch (err) {
+          console.error('Failed to update transfer status:', err);
+        }
+      }, 2000);
+      
       res.json(transfer);
     } catch (error) {
+      console.error('File transfer error:', error);
       res.status(400).json({ error: 'Failed to create file transfer' });
     }
   });

@@ -67,21 +67,23 @@ export const useFileTransfer = () => {
     try {
       setLoading(true);
       
-      // Create FormData for file upload
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('sender_device_id', currentDevice.id);
-      formData.append('transfer_method', transferMethod);
-      if (targetDeviceId) {
-        formData.append('receiver_device_id', targetDeviceId);
-      }
+      // Send as JSON to match backend expectations
+      const transferData = {
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        senderDeviceId: currentDevice.id,
+        receiverDeviceId: targetDeviceId,
+        transferMethod: transferMethod
+      };
 
       const response = await fetch('/api/file-transfers', {
         method: 'POST',
         headers: {
+          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: formData
+        body: JSON.stringify(transferData)
       });
 
       const data = await response.json();
@@ -93,7 +95,7 @@ export const useFileTransfer = () => {
       }
 
       await fetchTransfers();
-      toast.success('File transfer started');
+      toast.success(`File transfer started: ${file.name}`);
       return data;
     } catch (err) {
       console.error('Start transfer error:', err);

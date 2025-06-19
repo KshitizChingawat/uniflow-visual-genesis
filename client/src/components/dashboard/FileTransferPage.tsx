@@ -4,14 +4,16 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Upload, Download, Send, Trash2, X } from 'lucide-react';
+import { Upload, Download, Send, Trash2, X, FileText, Image, Video, Archive } from 'lucide-react';
 import { useFileTransfer } from '@/hooks/useFileTransfer';
 import { useDevices } from '@/hooks/useDevices';
+import { FileTransfer } from '@shared/schema';
 
 const FileTransferPage = () => {
-  const { transfers, loading, initiateTransfer, cancelTransfer } = useFileTransfer();
+  const { transfers, loading, startFileTransfer, cancelTransfer } = useFileTransfer();
   const { devices } = useDevices();
   const [selectedDevice, setSelectedDevice] = useState<string>('');
+  const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = () => {
@@ -21,12 +23,78 @@ const FileTransferPage = () => {
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      await initiateTransfer(file, selectedDevice || undefined);
-      // Reset file input
+      await startFileTransfer(file, selectedDevice || undefined);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
     }
+  };
+
+  const handleDrop = async (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setDragOver(false);
+    
+    const files = Array.from(event.dataTransfer.files);
+    for (const file of files) {
+      await startFileTransfer(file, selectedDevice || undefined);
+    }
+  };
+
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setDragOver(true);
+  };
+
+  const handleDragLeave = () => {
+    setDragOver(false);
+  };
+
+  const getFileIcon = (fileType: string) => {
+    if (fileType.startsWith('image/')) return <Image className="w-5 h-5" />;
+    if (fileType.startsWith('video/')) return <Video className="w-5 h-5" />;
+    if (fileType.includes('zip') || fileType.includes('rar')) return <Archive className="w-5 h-5" />;
+    return <FileText className="w-5 h-5" />;
+  };
+
+  // Helper function to normalize transfer field access
+  const getTransferField = (transfer: any, field: string): any => {
+    // Handle both camelCase and snake_case field names
+    const fieldMappings: Record<string, string[]> = {
+      fileName: ['fileName', 'file_name'],
+      fileSize: ['fileSize', 'file_size'],
+      fileType: ['fileType', 'file_type'],
+      transferStatus: ['transferStatus', 'transfer_status'],
+      transferMethod: ['transferMethod', 'transfer_method'],
+      createdAt: ['createdAt', 'created_at'],
+      senderDeviceId: ['senderDeviceId', 'sender_device_id'],
+      receiverDeviceId: ['receiverDeviceId', 'receiver_device_id']
+    };
+    
+    const possibleFields = fieldMappings[field] || [field];
+    for (const f of possibleFields) {
+      if (transfer[f] !== undefined) {
+        return transfer[f];
+      }
+    }
+    return '';
+  };
+
+  const getTransferProgress = (transfer: any) => {
+    const status = getTransferField(transfer, 'transferStatus');
+    switch (status) {
+      case 'completed': return 100;
+      case 'in_progress': return 75;
+      case 'pending': return 25;
+      default: return 0;
+    }
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   const getStatusColor = (status: string) => {
@@ -40,76 +108,64 @@ const FileTransferPage = () => {
     }
   };
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
-  const getTransferProgress = (transfer: any) => {
-    switch (transfer.transfer_status) {
-      case 'completed': return 100;
-      case 'in_progress': return 50; // This would be calculated based on actual progress
-      case 'pending': return 0;
-      default: return 0;
-    }
-  };
-
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-gray-900">File Transfer</h1>
-        <p className="text-gray-600 mt-2">Send files securely between your connected devices</p>
+        <p className="text-gray-600 mt-2">Send files securely across your connected devices</p>
       </div>
 
-      {/* Upload New File */}
+      {/* File Upload Section */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Upload className="w-5 h-5" />
-            <span>Send File</span>
-          </CardTitle>
-          <CardDescription>
-            Select a file to transfer to another device
-          </CardDescription>
+          <CardTitle>Send Files</CardTitle>
+          <CardDescription>Select files to transfer to your connected devices</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center space-x-4">
-            <div className="flex-1">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Target Device (optional)
-              </label>
-              <Select value={selectedDevice} onValueChange={setSelectedDevice}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Send to all devices" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">All connected devices</SelectItem>
-                  {devices.filter(d => d.is_active).map((device) => (
-                    <SelectItem key={device.id} value={device.id}>
-                      {device.device_name} ({device.platform})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          {/* Device Selection */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Target Device (Optional)</label>
+            <Select value={selectedDevice} onValueChange={setSelectedDevice}>
+              <SelectTrigger>
+                <SelectValue placeholder="Send to all devices" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All connected devices</SelectItem>
+                {devices.map((device) => (
+                  <SelectItem key={device.id} value={device.id}>
+                    {device.deviceName} ({device.deviceType})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-          
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-unilink-400 transition-colors">
+
+          {/* Drag & Drop Area */}
+          <div
+            className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+              dragOver 
+                ? 'border-unilink-500 bg-unilink-50' 
+                : 'border-gray-300 hover:border-gray-400'
+            }`}
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+          >
             <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Choose a file to transfer</h3>
-            <p className="text-gray-600 mb-4">
-              Select any file from your device to send
+            <p className="text-lg font-medium text-gray-900 mb-2">
+              Drop files here or click to browse
+            </p>
+            <p className="text-sm text-gray-500 mb-4">
+              Support for all file types up to 100MB
             </p>
             <Button onClick={handleFileSelect} disabled={loading}>
               <Upload className="w-4 h-4 mr-2" />
-              Select File
+              Select Files
             </Button>
             <input
               ref={fileInputRef}
               type="file"
+              multiple
               onChange={handleFileChange}
               className="hidden"
             />
@@ -120,55 +176,39 @@ const FileTransferPage = () => {
       {/* Transfer History */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Send className="w-5 h-5" />
-            <span>Transfer History</span>
-          </CardTitle>
-          <CardDescription>
-            Track your file transfer activity
-          </CardDescription>
+          <CardTitle>Transfer History</CardTitle>
+          <CardDescription>Recent file transfers and their status</CardDescription>
         </CardHeader>
         <CardContent>
-          {loading ? (
-            <div className="space-y-4">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="animate-pulse">
-                  <div className="h-24 bg-gray-200 rounded"></div>
-                </div>
-              ))}
-            </div>
-          ) : transfers.length === 0 ? (
-            <div className="text-center py-12">
-              <Send className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">No file transfers</h3>
-              <p className="text-gray-600">
-                Start transferring files to see them appear here
-              </p>
+          {transfers.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <Send className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p>No file transfers yet</p>
+              <p className="text-sm">Upload some files to get started</p>
             </div>
           ) : (
             <div className="space-y-4">
               {transfers.map((transfer) => (
-                <div key={transfer.id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
-                  <div className="flex justify-between items-start mb-3">
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-gray-900">{transfer.file_name}</h4>
-                      <p className="text-sm text-gray-600">
-                        {formatFileSize(transfer.file_size)} • {transfer.file_type}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {new Date(transfer.created_at).toLocaleString()}
-                      </p>
+                <div key={transfer.id} className="border rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center space-x-3">
+                      {getFileIcon(getTransferField(transfer, 'fileType'))}
+                      <div>
+                        <p className="font-medium">{getTransferField(transfer, 'fileName')}</p>
+                        <p className="text-sm text-gray-500">
+                          {formatFileSize(getTransferField(transfer, 'fileSize') || 0)}
+                        </p>
+                      </div>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <Badge className={getStatusColor(transfer.transfer_status)}>
-                        {transfer.transfer_status.replace('_', ' ')}
+                      <Badge className={getStatusColor(getTransferField(transfer, 'transferStatus') || 'pending')}>
+                        {(getTransferField(transfer, 'transferStatus') || 'pending').replace('_', ' ')}
                       </Badge>
-                      {transfer.transfer_status === 'pending' && (
+                      {getTransferField(transfer, 'transferStatus') === 'in_progress' && (
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={() => cancelTransfer(transfer.id)}
-                          className="text-red-600 hover:text-red-700"
                         >
                           <X className="w-4 h-4" />
                         </Button>
@@ -177,22 +217,45 @@ const FileTransferPage = () => {
                   </div>
                   
                   {/* Progress Bar */}
-                  {(transfer.transfer_status === 'in_progress' || transfer.transfer_status === 'pending') && (
-                    <div className="mb-3">
-                      <Progress value={getTransferProgress(transfer)} className="h-2" />
+                  <div className="space-y-2">
+                    <Progress value={getTransferProgress(transfer)} className="h-2" />
+                    <div className="flex justify-between text-xs text-gray-500">
+                      <span>
+                        {getTransferField(transfer, 'transferMethod') || 'cloud'} transfer
+                      </span>
+                      <span>
+                        {new Date(getTransferField(transfer, 'createdAt') || '').toLocaleTimeString()}
+                      </span>
                     </div>
-                  )}
-                  
-                  <div className="flex justify-between items-center text-sm text-gray-600">
-                    <span>Method: {transfer.transfer_method}</span>
-                    {transfer.completed_at && (
-                      <span>Completed: {new Date(transfer.completed_at).toLocaleString()}</span>
-                    )}
                   </div>
                 </div>
               ))}
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Quick Actions */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Quick Actions</CardTitle>
+          <CardDescription>Common file transfer operations</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Button variant="outline" className="h-auto p-4 flex flex-col items-center space-y-2">
+              <Image className="w-8 h-8" />
+              <span>Send Photos</span>
+            </Button>
+            <Button variant="outline" className="h-auto p-4 flex flex-col items-center space-y-2">
+              <FileText className="w-8 h-8" />
+              <span>Send Documents</span>
+            </Button>
+            <Button variant="outline" className="h-auto p-4 flex flex-col items-center space-y-2">
+              <Archive className="w-8 h-8" />
+              <span>Send Archive</span>
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>
