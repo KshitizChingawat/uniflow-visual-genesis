@@ -1,72 +1,68 @@
 
 import { useState, useEffect } from 'react';
-import { User, Session } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
-import { useNavigate } from 'react-router-dom';
+import { useLocation } from 'wouter';
 import { toast } from 'sonner';
+
+interface User {
+  id: string;
+  email: string;
+}
 
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
+  const [, navigate] = useLocation();
 
   useEffect(() => {
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth event:', event, session);
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
-        
-        if (event === 'SIGNED_IN' && session?.user) {
-          toast.success('Welcome back!');
-          navigate('/dashboard');
-        }
-        
-        if (event === 'SIGNED_OUT') {
-          toast.success('Signed out successfully');
-          navigate('/');
-        }
+    // Check for existing token in localStorage
+    const token = localStorage.getItem('auth_token');
+    const userData = localStorage.getItem('user_data');
+    
+    if (token && userData) {
+      try {
+        setUser(JSON.parse(userData));
+      } catch (error) {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user_data');
       }
-    );
-
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
-  }, [navigate]);
+    }
+    setLoading(false);
+  }, []);
 
   const signIn = async (email: string, password: string, rememberMe: boolean = false) => {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
       });
-      
-      if (error) {
-        if (error.message.includes('Invalid login credentials')) {
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (data.error === 'Invalid credentials') {
           toast.error('Invalid email or password. Please try again or sign up.');
-          return { error, shouldRedirect: false };
-        } else if (error.message.includes('Email not confirmed')) {
-          toast.error('Please check your email and click the confirmation link before signing in.');
-          return { error };
+          return { error: new Error(data.error), shouldRedirect: false };
         } else {
-          toast.error(error.message);
-          return { error };
+          toast.error(data.error || 'Sign in failed');
+          return { error: new Error(data.error) };
         }
       }
+
+      // Store token and user data
+      localStorage.setItem('auth_token', data.token);
+      localStorage.setItem('user_data', JSON.stringify(data.user));
       
-      if (rememberMe && data.session) {
-        localStorage.setItem('supabase-remember-me', 'true');
+      if (rememberMe) {
+        localStorage.setItem('remember-me', 'true');
       } else {
-        localStorage.removeItem('supabase-remember-me');
+        localStorage.removeItem('remember-me');
       }
+      
+      setUser(data.user);
+      navigate('/dashboard');
       
       return { error: null };
     } catch (err) {
@@ -77,30 +73,28 @@ export const useAuth = () => {
 
   const signUp = async (email: string, password: string, firstName: string, lastName: string) => {
     try {
-      const redirectUrl = `${window.location.origin}/`;
-      
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: redirectUrl,
-          data: {
-            first_name: firstName,
-            last_name: lastName,
-          }
-        }
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password, firstName, lastName }),
       });
-      
-      if (error) {
-        toast.error(error.message);
-        return { error };
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        toast.error(data.error || 'Sign up failed');
+        return { error: new Error(data.error) };
       }
+
+      // Store token and user data
+      localStorage.setItem('auth_token', data.token);
+      localStorage.setItem('user_data', JSON.stringify(data.user));
       
-      if (data.user && !data.session) {
-        toast.success('Account created! Please check your email to verify your account before signing in.');
-      } else if (data.session) {
-        toast.success('Account created and signed in successfully!');
-      }
+      setUser(data.user);
+      toast.success('Account created and signed in successfully!');
+      navigate('/dashboard');
       
       return { error: null };
     } catch (err) {
@@ -110,16 +104,24 @@ export const useAuth = () => {
   };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    localStorage.removeItem('supabase-remember-me');
-    if (error) {
-      toast.error(error.message);
+    try {
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user_data');
+      localStorage.removeItem('remember-me');
+      
+      setUser(null);
+      toast.success('Signed out successfully');
+      navigate('/');
+      
+      return { success: true };
+    } catch (error: any) {
+      toast.error('Sign out failed');
+      return { error };
     }
   };
 
   return {
     user,
-    session,
     loading,
     signIn,
     signUp,

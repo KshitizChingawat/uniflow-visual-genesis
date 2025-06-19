@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Menu, X, LogOut } from 'lucide-react';
 import DownloadButton from './DownloadButton';
@@ -9,10 +9,10 @@ import { useAuth } from '@/hooks/useAuth';
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const location = useLocation();
+  const [location] = useLocation();
   const { user, signOut } = useAuth();
 
-  const isActive = (path: string) => location.pathname === path;
+  const isActive = (path: string) => location === path;
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200">
@@ -57,7 +57,7 @@ const Header = () => {
                     Dashboard
                   </Button>
                 </Link>
-                <span className="text-sm text-gray-700">Welcome, {user.user_metadata?.first_name || user.email}</span>
+                <span className="text-sm text-gray-700">Welcome, {user.email}</span>
                 <Button variant="ghost" onClick={signOut} className="text-gray-700 hover:text-unilink-600">
                   <LogOut className="w-4 h-4 mr-2" />
                   Sign Out

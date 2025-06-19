@@ -1,6 +1,7 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { useLocation, Route, Switch } from 'wouter';
 import { useAuth } from '@/hooks/useAuth';
 import { Loader2 } from 'lucide-react';
+import { useEffect } from 'react';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import DashboardHome from '@/components/dashboard/DashboardHome';
 import DevicesPage from '@/components/dashboard/DevicesPage';
@@ -13,6 +14,13 @@ import SmartSyncDashboard from '@/components/dashboard/SmartSyncDashboard';
 
 const Dashboard = () => {
   const { user, loading } = useAuth();
+  const [location, navigate] = useLocation();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate('/login');
+    }
+  }, [user, loading, navigate]);
 
   if (loading) {
     return (
@@ -23,21 +31,21 @@ const Dashboard = () => {
   }
 
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return null;
   }
 
   return (
     <DashboardLayout>
-      <Routes>
-        <Route path="/" element={<DashboardHome />} />
-        <Route path="/devices" element={<DevicesPage />} />
-        <Route path="/clipboard" element={<ClipboardPage />} />
-        <Route path="/files" element={<FileTransferPage />} />
-        <Route path="/analytics" element={<AnalyticsPage />} />
-        <Route path="/security" element={<SecurityPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/smart-sync" element={<SmartSyncDashboard />} />
-      </Routes>
+      <Switch>
+        <Route path="/dashboard" component={DashboardHome} />
+        <Route path="/dashboard/devices" component={DevicesPage} />
+        <Route path="/dashboard/clipboard" component={ClipboardPage} />
+        <Route path="/dashboard/files" component={FileTransferPage} />
+        <Route path="/dashboard/analytics" component={AnalyticsPage} />
+        <Route path="/dashboard/security" component={SecurityPage} />
+        <Route path="/dashboard/settings" component={SettingsPage} />
+        <Route path="/dashboard/smart-sync" component={SmartSyncDashboard} />
+      </Switch>
     </DashboardLayout>
   );
 };
