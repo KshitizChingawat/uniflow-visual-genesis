@@ -1,6 +1,4 @@
-
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 
@@ -17,136 +15,103 @@ export interface VaultItem {
 
 export const useSecureVault = () => {
   const [vaultItems, setVaultItems] = useState<VaultItem[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const { user } = useAuth();
 
-  // Simple encryption (in production, use proper encryption)
-  const encrypt = (content: string): string => {
-    return btoa(content);
-  };
+  // Fetch vault items
+  const fetchVaultItems = async () => {
+    if (!user) return;
 
-  const decrypt = (encryptedContent: string): string => {
-    try {
-      return atob(encryptedContent);
-    } catch {
-      return encryptedContent;
-    }
-  };
-
-  const storeSecurely = async (
-    content: string,
-    type: 'clipboard' | 'file' | 'note',
-    metadata?: any,
-    tags: string[] = []
-  ) => {
-    if (!user) return null;
+    const token = localStorage.getItem('auth_token');
+    if (!token) return;
 
     try {
-      setLoading(true);
-      const encryptedContent = encrypt(content);
+      const response = await fetch('/api/vault', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
 
-      const { data, error } = await supabase
-        .from('secure_vault')
-        .insert({
-          user_id: user.id,
-          item_type: type,
-          encrypted_content: encryptedContent,
-          metadata,
-          tags
-        })
-        .select()
-        .single();
+      const data = await response.json();
 
-      if (error) throw error;
+      if (!response.ok) {
+        console.error('Fetch vault items error:', data.error);
+        return;
+      }
 
-      toast.success('Item stored securely');
-      fetchVaultItems();
-      return data;
-
-    } catch (error) {
-      console.error('Failed to store item:', error);
-      toast.error('Failed to store item securely');
-      return null;
+      setVaultItems(data || []);
+    } catch (err) {
+      console.error('Fetch vault items error:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const retrieveSecurely = async (itemId: string) => {
-    if (!user) return null;
+  // Add item to vault
+  const addToVault = async (itemType: 'clipboard' | 'file' | 'note', content: string, metadata?: any, tags: string[] = []) => {
+    if (!user) return;
+
+    const token = localStorage.getItem('auth_token');
+    if (!token) return;
 
     try {
-      const { data, error } = await supabase
-        .from('secure_vault')
-        .select('*')
-        .eq('id', itemId)
-        .eq('user_id', user.id)
-        .single();
+      const response = await fetch('/api/vault', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          item_type: itemType,
+          encrypted_content: content,
+          metadata,
+          tags
+        })
+      });
 
-      if (error) throw error;
+      const data = await response.json();
 
-      // Update accessed_at
-      await supabase
-        .from('secure_vault')
-        .update({ accessed_at: new Date().toISOString() })
-        .eq('id', itemId);
+      if (!response.ok) {
+        console.error('Add to vault error:', data.error);
+        toast.error('Failed to add item to vault');
+        return;
+      }
 
-      return {
-        ...data,
-        decrypted_content: decrypt(data.encrypted_content)
-      };
-
-    } catch (error) {
-      console.error('Failed to retrieve item:', error);
-      toast.error('Failed to retrieve item');
-      return null;
+      await fetchVaultItems();
+      toast.success('Item added to vault');
+    } catch (err) {
+      console.error('Add to vault error:', err);
+      toast.error('Failed to add item to vault');
     }
   };
 
-  const fetchVaultItems = async () => {
+  // Remove item from vault
+  const removeFromVault = async (itemId: string) => {
     if (!user) return;
 
-    try {
-      const { data, error } = await supabase
-        .from('secure_vault')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      
-      // Transform the data to match VaultItem interface
-      const transformedData: VaultItem[] = (data || []).map(item => ({
-        ...item,
-        item_type: item.item_type as 'clipboard' | 'file' | 'note'
-      }));
-      
-      setVaultItems(transformedData);
-
-    } catch (error) {
-      console.error('Failed to fetch vault items:', error);
-      toast.error('Failed to fetch vault items');
-    }
-  };
-
-  const deleteVaultItem = async (itemId: string) => {
-    if (!user) return;
+    const token = localStorage.getItem('auth_token');
+    if (!token) return;
 
     try {
-      const { error } = await supabase
-        .from('secure_vault')
-        .delete()
-        .eq('id', itemId)
-        .eq('user_id', user.id);
+      const response = await fetch(`/api/vault/${itemId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
 
-      if (error) throw error;
+      if (!response.ok) {
+        const data = await response.json();
+        console.error('Remove from vault error:', data.error);
+        toast.error('Failed to remove item from vault');
+        return;
+      }
 
-      toast.success('Item deleted securely');
-      fetchVaultItems();
-
-    } catch (error) {
-      console.error('Failed to delete item:', error);
-      toast.error('Failed to delete item');
+      await fetchVaultItems();
+      toast.success('Item removed from vault');
+    } catch (err) {
+      console.error('Remove from vault error:', err);
+      toast.error('Failed to remove item from vault');
     }
   };
 
@@ -159,9 +124,8 @@ export const useSecureVault = () => {
   return {
     vaultItems,
     loading,
-    storeSecurely,
-    retrieveSecurely,
-    deleteVaultItem,
+    addToVault,
+    removeFromVault,
     fetchVaultItems
   };
 };

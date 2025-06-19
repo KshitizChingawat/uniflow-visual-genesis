@@ -1,20 +1,19 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 
 export interface Device {
   id: string;
-  user_id: string;
-  device_name: string;
-  device_type: 'desktop' | 'mobile' | 'tablet' | 'browser';
+  userId: string;
+  deviceName: string;
+  deviceType: 'desktop' | 'mobile' | 'tablet' | 'browser';
   platform: 'windows' | 'macos' | 'linux' | 'android' | 'ios' | 'browser';
-  device_id: string;
-  public_key?: string;
-  last_seen?: string;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
+  deviceId: string;
+  publicKey?: string;
+  lastSeen?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export const useDevices = () => {
@@ -39,66 +38,116 @@ export const useDevices = () => {
 
     const deviceId = getOrCreateDeviceId();
     const deviceName = `${navigator.platform} Browser`;
+    const token = localStorage.getItem('auth_token');
     
-    try {
-      const { data, error } = await supabase
-        .from('devices')
-        .upsert({
-          user_id: user.id,
-          device_name: deviceName,
-          device_type: 'browser',
-          platform: 'browser',
-          device_id: deviceId,
-          last_seen: new Date().toISOString(),
-          is_active: true
-        }, {
-          onConflict: 'device_id'
-        })
-        .select()
-        .single();
+    if (!token) return;
 
-      if (error) throw error;
-      
-      setCurrentDevice(data as Device);
-      console.log('Device registered:', data);
-    } catch (error) {
-      console.error('Error registering device:', error);
-      toast.error('Failed to register device');
+    try {
+      const response = await fetch('/api/devices', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          deviceName,
+          deviceType: 'browser',
+          platform: 'browser',
+          deviceId
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error('Device registration error:', data.error);
+        return;
+      }
+
+      setCurrentDevice(data);
+    } catch (err) {
+      console.error('Device registration error:', err);
     }
   };
 
-  // Fetch user's devices
+  // Fetch all devices for the user
   const fetchDevices = async () => {
     if (!user) return;
 
-    try {
-      const { data, error } = await supabase
-        .from('devices')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('last_seen', { ascending: false });
+    const token = localStorage.getItem('auth_token');
+    if (!token) return;
 
-      if (error) throw error;
-      setDevices((data || []) as Device[]);
-    } catch (error) {
-      console.error('Error fetching devices:', error);
-      toast.error('Failed to fetch devices');
-    } finally {
-      setLoading(false);
+    try {
+      const response = await fetch('/api/devices', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error('Fetch devices error:', data.error);
+        return;
+      }
+
+      setDevices(data || []);
+    } catch (err) {
+      console.error('Fetch devices error:', err);
     }
   };
 
-  // Update device last seen
-  const updateLastSeen = async () => {
-    if (!currentDevice) return;
+  // Update device status
+  const updateDeviceStatus = async (deviceId: string, isActive: boolean) => {
+    const token = localStorage.getItem('auth_token');
+    if (!token) return;
 
     try {
-      await supabase
-        .from('devices')
-        .update({ last_seen: new Date().toISOString() })
-        .eq('id', currentDevice.id);
-    } catch (error) {
-      console.error('Error updating last seen:', error);
+      const response = await fetch(`/api/devices/${deviceId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ isActive })
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        console.error('Update device status error:', data.error);
+        return;
+      }
+
+      await fetchDevices();
+      toast.success('Device status updated');
+    } catch (err) {
+      console.error('Update device status error:', err);
+    }
+  };
+
+  // Remove device
+  const removeDevice = async (deviceId: string) => {
+    const token = localStorage.getItem('auth_token');
+    if (!token) return;
+
+    try {
+      const response = await fetch(`/api/devices/${deviceId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        console.error('Remove device error:', data.error);
+        return;
+      }
+
+      await fetchDevices();
+      toast.success('Device removed successfully');
+    } catch (err) {
+      console.error('Remove device error:', err);
     }
   };
 
@@ -107,39 +156,7 @@ export const useDevices = () => {
       registerDevice();
       fetchDevices();
     }
-  }, [user]);
-
-  // Update last seen every 30 seconds
-  useEffect(() => {
-    if (currentDevice) {
-      const interval = setInterval(updateLastSeen, 30000);
-      return () => clearInterval(interval);
-    }
-  }, [currentDevice]);
-
-  // Real-time subscription for device updates
-  useEffect(() => {
-    if (!user) return;
-
-    const channel = supabase
-      .channel('devices-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'devices',
-          filter: `user_id=eq.${user.id}`
-        },
-        () => {
-          fetchDevices();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    setLoading(false);
   }, [user]);
 
   return {
@@ -148,6 +165,7 @@ export const useDevices = () => {
     loading,
     registerDevice,
     fetchDevices,
-    updateLastSeen
+    updateDeviceStatus,
+    removeDevice
   };
 };

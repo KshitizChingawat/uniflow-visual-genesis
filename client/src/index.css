@@ -45,6 +45,18 @@
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* UniLink brand colors */
+    --unilink-50: 220 100% 98%;
+    --unilink-100: 220 100% 95%;
+    --unilink-200: 220 100% 90%;
+    --unilink-300: 220 100% 80%;
+    --unilink-400: 220 100% 70%;
+    --unilink-500: 220 100% 60%;
+    --unilink-600: 220 100% 50%;
+    --unilink-700: 220 90% 45%;
+    --unilink-800: 220 80% 40%;
+    --unilink-900: 220 70% 35%;
   }
 
   .dark {

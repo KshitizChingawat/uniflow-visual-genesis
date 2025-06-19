@@ -64,6 +64,18 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        unilink: {
+          50: "hsl(var(--unilink-50))",
+          100: "hsl(var(--unilink-100))",
+          200: "hsl(var(--unilink-200))",
+          300: "hsl(var(--unilink-300))",
+          400: "hsl(var(--unilink-400))",
+          500: "hsl(var(--unilink-500))",
+          600: "hsl(var(--unilink-600))",
+          700: "hsl(var(--unilink-700))",
+          800: "hsl(var(--unilink-800))",
+          900: "hsl(var(--unilink-900))",
+        },
       },
       keyframes: {
         "accordion-down": {

@@ -81,9 +81,9 @@ UniLink is a revolutionary cross-platform connectivity application that seamless
 ## External Dependencies
 
 ### Primary Services
-- **Supabase**: Authentication, real-time database, and file storage
 - **Neon**: Primary PostgreSQL database with serverless scaling
-- **OpenAI**: AI-powered content analysis and suggestions
+- **Express.js**: Backend API with JWT authentication
+- **OpenAI**: AI-powered content analysis and suggestions (optional)
 
 ### Key Libraries
 - **Frontend**: React, TypeScript, TanStack Query, Radix UI, Tailwind CSS
