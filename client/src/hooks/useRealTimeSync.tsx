@@ -1,20 +1,36 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from './useAuth';
 import { useDevices } from './useDevices';
 import { toast } from 'sonner';
 
+interface SyncEvent {
+  type: string;
+  data: any;
+  timestamp: number;
+  deviceId?: string;
+}
+
 export const useRealTimeSync = () => {
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isConnected, setIsConnected] = useState(false);
-  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'error'>('idle');
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'connected' | 'error'>('idle');
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
-  const [syncQueue, setSyncQueue] = useState<any[]>([]);
+  const [syncQueue, setSyncQueue] = useState<SyncEvent[]>([]);
+  const [connectionAttempts, setConnectionAttempts] = useState(0);
   const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const { user } = useAuth();
   const { currentDevice } = useDevices();
 
-  // Initialize WebSocket connection
-  const initializeConnection = () => {
+  // Enhanced connection management
+  const initializeConnection = useCallback(() => {
     if (!user || !currentDevice) return;
+
+    // Clear existing connection
+    if (wsRef.current) {
+      wsRef.current.close();
+    }
 
     try {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -24,14 +40,28 @@ export const useRealTimeSync = () => {
 
       wsRef.current.onopen = () => {
         setIsConnected(true);
-        setSyncStatus('idle');
+        setSyncStatus('connected');
+        setConnectionAttempts(0);
         
-        // Send authentication
+        // Send authentication with enhanced device info
         wsRef.current?.send(JSON.stringify({
           type: 'auth',
           token: localStorage.getItem('auth_token'),
-          deviceId: currentDevice.id
+          deviceId: currentDevice.id,
+          deviceInfo: {
+            name: currentDevice.deviceName,
+            type: currentDevice.deviceType,
+            platform: currentDevice.platform,
+            userAgent: navigator.userAgent,
+            timestamp: Date.now()
+          }
         }));
+
+        // Start heartbeat
+        startHeartbeat();
+        
+        // Process queued messages
+        processQueuedMessages();
 
         toast.success('Real-time sync connected');
       };
@@ -45,16 +75,16 @@ export const useRealTimeSync = () => {
         }
       };
 
-      wsRef.current.onclose = () => {
+      wsRef.current.onclose = (event) => {
         setIsConnected(false);
-        setSyncStatus('error');
+        stopHeartbeat();
         
-        // Attempt to reconnect after 3 seconds
-        setTimeout(() => {
-          if (user && currentDevice) {
-            initializeConnection();
-          }
-        }, 3000);
+        if (event.code !== 1000) { // Not a normal closure
+          setSyncStatus('error');
+          scheduleReconnect();
+        } else {
+          setSyncStatus('idle');
+        }
       };
 
       wsRef.current.onerror = (error) => {
@@ -65,151 +95,300 @@ export const useRealTimeSync = () => {
     } catch (err) {
       console.error('Failed to initialize WebSocket:', err);
       setSyncStatus('error');
+      scheduleReconnect();
+    }
+  }, [user, currentDevice]);
+
+  // Enhanced reconnection logic with exponential backoff
+  const scheduleReconnect = useCallback(() => {
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+    }
+
+    const delay = Math.min(1000 * Math.pow(2, connectionAttempts), 30000); // Max 30 seconds
+    setConnectionAttempts(prev => prev + 1);
+
+    reconnectTimeoutRef.current = setTimeout(() => {
+      if (user && currentDevice && !isConnected) {
+        console.log(`Attempting to reconnect (attempt ${connectionAttempts + 1})`);
+        initializeConnection();
+      }
+    }, delay);
+  }, [connectionAttempts, user, currentDevice, isConnected, initializeConnection]);
+
+  // Heartbeat mechanism
+  const startHeartbeat = () => {
+    if (heartbeatIntervalRef.current) {
+      clearInterval(heartbeatIntervalRef.current);
+    }
+
+    heartbeatIntervalRef.current = setInterval(() => {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({
+          type: 'heartbeat',
+          timestamp: Date.now(),
+          deviceId: currentDevice?.id
+        }));
+      }
+    }, 30000); // Every 30 seconds
+  };
+
+  const stopHeartbeat = () => {
+    if (heartbeatIntervalRef.current) {
+      clearInterval(heartbeatIntervalRef.current);
+      heartbeatIntervalRef.current = null;
     }
   };
 
-  // Handle incoming WebSocket messages
+  // Enhanced message handling
   const handleWebSocketMessage = (message: any) => {
     switch (message.type) {
+      case 'auth_success':
+        setSyncStatus('connected');
+        toast.success('Authentication successful');
+        break;
+        
+      case 'auth_error':
+        setSyncStatus('error');
+        toast.error('Authentication failed');
+        break;
+        
       case 'clipboard_sync':
         handleClipboardSync(message.data);
         break;
+        
       case 'file_transfer':
         handleFileTransferUpdate(message.data);
         break;
+        
       case 'device_update':
         handleDeviceUpdate(message.data);
         break;
+        
       case 'ai_suggestion':
         handleAISuggestion(message.data);
         break;
+        
       case 'sync_complete':
-        setSyncStatus('idle');
+        setSyncStatus('connected');
         setLastSyncTime(new Date());
         break;
+        
+      case 'heartbeat_response':
+        // Connection is alive
+        break;
+        
+      case 'error':
+        console.error('Server error:', message.data);
+        toast.error(`Sync error: ${message.data.message}`);
+        break;
+        
       default:
         console.log('Unknown message type:', message.type);
     }
   };
 
-  // Handle clipboard sync
+  // Enhanced clipboard sync handling
   const handleClipboardSync = (data: any) => {
     if (data.deviceId !== currentDevice?.id) {
-      toast.info(`Clipboard updated from ${data.deviceName}`);
+      const notification = `Clipboard updated from ${data.deviceName}`;
       
-      // Update local clipboard if supported
-      if (navigator.clipboard && data.content) {
+      // Show notification with action
+      toast.info(notification, {
+        action: {
+          label: 'Copy',
+          onClick: () => {
+            if (navigator.clipboard && data.content) {
+              navigator.clipboard.writeText(data.content).catch(console.error);
+              toast.success('Copied to clipboard');
+            }
+          }
+        }
+      });
+      
+      // Auto-copy if enabled in settings
+      const autoClipboard = localStorage.getItem('autoClipboardSync') === 'true';
+      if (autoClipboard && navigator.clipboard && data.content) {
         navigator.clipboard.writeText(data.content).catch(console.error);
       }
     }
   };
 
-  // Handle file transfer updates
+  // Enhanced file transfer handling
   const handleFileTransferUpdate = (data: any) => {
-    const { transferId, status, progress } = data;
+    const { transferId, status, progress, fileName, deviceName } = data;
     
     switch (status) {
       case 'completed':
-        toast.success(`File transfer completed: ${data.fileName}`);
+        toast.success(`File transfer completed: ${fileName}`, {
+          action: {
+            label: 'View',
+            onClick: () => {
+              // Navigate to file transfers page
+              window.location.href = '/dashboard/files';
+            }
+          }
+        });
         break;
+        
       case 'failed':
-        toast.error(`File transfer failed: ${data.fileName}`);
+        toast.error(`File transfer failed: ${fileName}`);
         break;
+        
       case 'in_progress':
-        if (progress) {
-          toast.info(`Transfer progress: ${Math.round(progress)}%`);
+        if (progress && progress % 25 === 0) { // Show progress every 25%
+          toast.info(`Transfer progress: ${Math.round(progress)}% - ${fileName}`);
         }
+        break;
+        
+      case 'received':
+        toast.success(`File received from ${deviceName}: ${fileName}`, {
+          action: {
+            label: 'Download',
+            onClick: () => {
+              // Trigger download
+              window.open(`/api/file-transfers/${transferId}/download`, '_blank');
+            }
+          }
+        });
         break;
     }
   };
 
-  // Handle device updates
+  // Enhanced device update handling
   const handleDeviceUpdate = (data: any) => {
-    const { deviceName, status } = data;
+    const { deviceName, status, deviceType } = data;
     
     switch (status) {
       case 'online':
-        toast.info(`${deviceName} came online`);
+        toast.info(`${deviceName} (${deviceType}) came online`, {
+          action: {
+            label: 'View Devices',
+            onClick: () => {
+              window.location.href = '/dashboard/devices';
+            }
+          }
+        });
         break;
+        
       case 'offline':
         toast.info(`${deviceName} went offline`);
         break;
+        
+      case 'low_battery':
+        toast.warning(`${deviceName} has low battery`);
+        break;
     }
   };
 
-  // Handle AI suggestions
+  // Enhanced AI suggestion handling
   const handleAISuggestion = (data: any) => {
     if (data.confidence > 0.8) {
-      toast.info(`AI Suggestion: ${data.description}`);
+      toast.info(`AI Suggestion: ${data.description}`, {
+        action: {
+          label: 'View',
+          onClick: () => {
+            window.location.href = '/dashboard/smart-sync';
+          }
+        }
+      });
     }
   };
 
-  // Send real-time sync message
-  const sendSyncMessage = (type: string, data: any) => {
+  // Enhanced message sending with retry logic
+  const sendSyncMessage = (type: string, data: any, priority: 'low' | 'medium' | 'high' = 'medium') => {
+    const message: SyncEvent = {
+      type,
+      data: {
+        ...data,
+        deviceId: currentDevice?.id,
+        timestamp: Date.now(),
+        priority
+      },
+      timestamp: Date.now(),
+      deviceId: currentDevice?.id
+    };
+
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
       // Queue message if not connected
-      setSyncQueue(prev => [...prev, { type, data, timestamp: Date.now() }]);
+      setSyncQueue(prev => {
+        const newQueue = [...prev, message];
+        // Limit queue size and prioritize high priority messages
+        return newQueue
+          .sort((a, b) => {
+            const priorityOrder = { high: 3, medium: 2, low: 1 };
+            return priorityOrder[b.data.priority] - priorityOrder[a.data.priority];
+          })
+          .slice(0, 100); // Max 100 queued messages
+      });
       return;
     }
 
     setSyncStatus('syncing');
     
-    wsRef.current.send(JSON.stringify({
-      type,
-      data: {
-        ...data,
-        deviceId: currentDevice?.id,
-        timestamp: Date.now()
-      }
-    }));
+    try {
+      wsRef.current.send(JSON.stringify(message));
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      setSyncQueue(prev => [...prev, message]);
+    }
   };
 
-  // Sync clipboard content
-  const syncClipboard = (content: string, contentType: string = 'text') => {
-    sendSyncMessage('clipboard_sync', {
-      content,
-      contentType,
-      deviceName: currentDevice?.deviceName
-    });
-  };
-
-  // Sync file transfer
-  const syncFileTransfer = (transferData: any) => {
-    sendSyncMessage('file_transfer', transferData);
-  };
-
-  // Sync device status
-  const syncDeviceStatus = (status: 'online' | 'offline' | 'busy') => {
-    sendSyncMessage('device_status', {
-      status,
-      deviceName: currentDevice?.deviceName
-    });
-  };
-
-  // Process queued messages
+  // Process queued messages with priority
   const processQueuedMessages = () => {
     if (syncQueue.length > 0 && isConnected) {
       const queue = [...syncQueue];
       setSyncQueue([]);
       
-      queue.forEach(({ type, data }) => {
-        sendSyncMessage(type, data);
+      queue.forEach((message) => {
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+          try {
+            wsRef.current.send(JSON.stringify(message));
+          } catch (error) {
+            console.error('Failed to send queued message:', error);
+          }
+        }
       });
     }
   };
 
-  // Get sync statistics
+  // Enhanced sync methods
+  const syncClipboard = (content: string, contentType: string = 'text') => {
+    sendSyncMessage('clipboard_sync', {
+      content,
+      contentType,
+      deviceName: currentDevice?.deviceName,
+      timestamp: Date.now()
+    }, 'high');
+  };
+
+  const syncFileTransfer = (transferData: any) => {
+    sendSyncMessage('file_transfer', transferData, 'medium');
+  };
+
+  const syncDeviceStatus = (status: 'online' | 'offline' | 'busy' | 'low_battery') => {
+    sendSyncMessage('device_status', {
+      status,
+      deviceName: currentDevice?.deviceName,
+      batteryLevel: (navigator as any).getBattery?.()?.level || null
+    }, 'low');
+  };
+
+  // Enhanced sync statistics
   const getSyncStats = () => {
     return {
+      isOnline,
       isConnected,
       status: syncStatus,
       lastSync: lastSyncTime,
       queuedItems: syncQueue.length,
-      uptime: lastSyncTime ? Date.now() - lastSyncTime.getTime() : 0
+      connectionAttempts,
+      uptime: lastSyncTime ? Date.now() - lastSyncTime.getTime() : 0,
+      highPriorityQueued: syncQueue.filter(m => m.data.priority === 'high').length
     };
   };
 
-  // Manual sync trigger
+  // Manual sync with enhanced error handling
   const triggerManualSync = async () => {
     if (!user) return;
 
@@ -226,7 +405,9 @@ export const useRealTimeSync = () => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          deviceId: currentDevice?.id
+          deviceId: currentDevice?.id,
+          timestamp: Date.now(),
+          force: true
         })
       });
 
@@ -234,36 +415,67 @@ export const useRealTimeSync = () => {
         setLastSyncTime(new Date());
         toast.success('Manual sync completed');
       } else {
-        toast.error('Manual sync failed');
+        const errorData = await response.json();
+        toast.error(`Manual sync failed: ${errorData.message}`);
       }
     } catch (err) {
       console.error('Manual sync error:', err);
-      toast.error('Manual sync failed');
+      toast.error('Manual sync failed - check your connection');
     } finally {
-      setSyncStatus('idle');
+      setSyncStatus(isConnected ? 'connected' : 'idle');
     }
   };
 
-  // Cleanup WebSocket connection
+  // Enhanced cleanup
   const disconnect = () => {
     if (wsRef.current) {
-      wsRef.current.close();
+      wsRef.current.close(1000, 'User disconnected');
       wsRef.current = null;
     }
+    
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+    
+    stopHeartbeat();
     setIsConnected(false);
     setSyncStatus('idle');
   };
 
+  // Network status monitoring
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      if (user && currentDevice && !isConnected) {
+        initializeConnection();
+      }
+    };
+
+    const handleOffline = () => {
+      setIsOnline(false);
+      setSyncStatus('error');
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [user, currentDevice, isConnected, initializeConnection]);
+
   // Initialize connection when user and device are available
   useEffect(() => {
-    if (user && currentDevice) {
+    if (user && currentDevice && isOnline) {
       initializeConnection();
     }
 
     return () => {
       disconnect();
     };
-  }, [user, currentDevice]);
+  }, [user, currentDevice, isOnline, initializeConnection]);
 
   // Process queued messages when connected
   useEffect(() => {
@@ -272,24 +484,13 @@ export const useRealTimeSync = () => {
     }
   }, [isConnected]);
 
-  // Send periodic heartbeat
-  useEffect(() => {
-    if (isConnected && currentDevice) {
-      const interval = setInterval(() => {
-        sendSyncMessage('heartbeat', {
-          deviceName: currentDevice.deviceName
-        });
-      }, 30000); // Every 30 seconds
-
-      return () => clearInterval(interval);
-    }
-  }, [isConnected, currentDevice]);
-
   return {
+    isOnline,
     isConnected,
     syncStatus,
     lastSyncTime,
     syncQueue: syncQueue.length,
+    connectionAttempts,
     syncClipboard,
     syncFileTransfer,
     syncDeviceStatus,

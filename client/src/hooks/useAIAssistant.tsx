@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 
@@ -21,7 +21,7 @@ export const useAIAssistant = () => {
   const { user } = useAuth();
 
   // Fetch AI suggestions
-  const fetchSuggestions = async () => {
+  const fetchSuggestions = useCallback(async () => {
     if (!user) return;
 
     const token = localStorage.getItem('auth_token');
@@ -45,9 +45,9 @@ export const useAIAssistant = () => {
     } catch (err) {
       console.error('Fetch AI suggestions error:', err);
     }
-  };
+  }, [user]);
 
-  // Analyze clipboard content
+  // Analyze clipboard content with enhanced AI
   const analyzeClipboardContent = async (content: string) => {
     if (!user || !assistantEnabled) return;
 
@@ -57,15 +57,20 @@ export const useAIAssistant = () => {
     try {
       setLoading(true);
 
-      const response = await fetch('/api/ai-suggestions', {
+      const response = await fetch('/api/ai-assistant', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          suggestion_type: 'clipboard_analysis',
-          content: { text: content }
+          content,
+          type: 'clipboard_analysis',
+          context: {
+            timestamp: new Date().toISOString(),
+            contentLength: content.length,
+            userAgent: navigator.userAgent
+          }
         })
       });
 
@@ -85,7 +90,7 @@ export const useAIAssistant = () => {
     }
   };
 
-  // Get file organization suggestions
+  // Get file organization suggestions with enhanced context
   const getFileOrganizationSuggestion = async (fileName: string, fileType: string, fileSize: number) => {
     if (!user || !assistantEnabled) return;
 
@@ -95,15 +100,21 @@ export const useAIAssistant = () => {
     try {
       setLoading(true);
 
-      const response = await fetch('/api/ai-suggestions', {
+      const response = await fetch('/api/ai-assistant', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          suggestion_type: 'file_organization',
-          content: { fileName, fileType, fileSize }
+          content: fileName,
+          type: 'file_organization',
+          context: {
+            fileType,
+            fileSize,
+            timestamp: new Date().toISOString(),
+            extension: fileName.split('.').pop()?.toLowerCase()
+          }
         })
       });
 
@@ -123,7 +134,7 @@ export const useAIAssistant = () => {
     }
   };
 
-  // Get device recommendations
+  // Get device recommendations with enhanced logic
   const getDeviceRecommendations = async (deviceData: any) => {
     if (!user || !assistantEnabled) return;
 
@@ -131,15 +142,20 @@ export const useAIAssistant = () => {
     if (!token) return;
 
     try {
-      const response = await fetch('/api/ai-suggestions', {
+      const response = await fetch('/api/ai-assistant', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          suggestion_type: 'device_recommendation',
-          content: deviceData
+          content: 'Device recommendation request',
+          type: 'device_recommendation',
+          context: {
+            ...deviceData,
+            timestamp: new Date().toISOString(),
+            userPreferences: JSON.parse(localStorage.getItem('userPreferences') || '{}')
+          }
         })
       });
 
@@ -156,7 +172,7 @@ export const useAIAssistant = () => {
     }
   };
 
-  // Mark suggestion as used
+  // Mark suggestion as used with enhanced feedback
   const markSuggestionUsed = async (suggestionId: string, feedbackScore?: number) => {
     if (!user) return;
 
@@ -172,7 +188,8 @@ export const useAIAssistant = () => {
         },
         body: JSON.stringify({
           used: true,
-          feedback_score: feedbackScore
+          feedback_score: feedbackScore,
+          used_at: new Date().toISOString()
         })
       });
 
@@ -183,9 +200,42 @@ export const useAIAssistant = () => {
       }
 
       await fetchSuggestions();
-      toast.success('Feedback recorded');
+      toast.success('Feedback recorded - this helps improve AI suggestions');
     } catch (err) {
       console.error('Mark suggestion used error:', err);
+    }
+  };
+
+  // Provide feedback on suggestions
+  const provideFeedback = async (suggestionId: string, feedbackScore: number) => {
+    if (!user) return;
+
+    const token = localStorage.getItem('auth_token');
+    if (!token) return;
+
+    try {
+      const response = await fetch(`/api/ai-suggestions/${suggestionId}/feedback`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          feedback_score: feedbackScore,
+          feedback_timestamp: new Date().toISOString()
+        })
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        console.error('Provide feedback error:', data.error);
+        return;
+      }
+
+      await fetchSuggestions();
+      toast.success(feedbackScore > 0 ? 'Thanks for the positive feedback!' : 'Feedback noted - we\'ll improve');
+    } catch (err) {
+      console.error('Provide feedback error:', err);
     }
   };
 
@@ -211,63 +261,140 @@ export const useAIAssistant = () => {
       }
 
       await fetchSuggestions();
+      toast.info('Suggestion dismissed');
     } catch (err) {
       console.error('Dismiss suggestion error:', err);
     }
   };
 
-  // Toggle AI assistant
+  // Toggle AI assistant with enhanced settings
   const toggleAssistant = (enabled: boolean) => {
     setAssistantEnabled(enabled);
     localStorage.setItem('aiAssistantEnabled', enabled.toString());
+    
+    // Save user preference to backend
+    if (user) {
+      const token = localStorage.getItem('auth_token');
+      if (token) {
+        fetch('/api/user/preferences', {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            ai_assistant_enabled: enabled
+          })
+        }).catch(console.error);
+      }
+    }
+    
     toast.success(enabled ? 'AI Assistant enabled' : 'AI Assistant disabled');
   };
 
-  // Get suggestions by type
-  const getSuggestionsByType = (type: string) => {
-    return suggestions.filter(s => s.suggestion_type === type && !s.used);
+  // Get suggestions by type with filtering
+  const getSuggestionsByType = (type: string, includeUsed: boolean = false) => {
+    return suggestions.filter(s => 
+      s.suggestion_type === type && 
+      (includeUsed || !s.used) &&
+      (!s.expires_at || new Date(s.expires_at) > new Date())
+    );
   };
 
-  // Get smart content analysis
+  // Enhanced smart content analysis
   const getSmartContentAnalysis = (content: string) => {
     const analysis = {
       type: 'unknown',
       confidence: 0,
-      suggestions: []
+      suggestions: [] as string[],
+      metadata: {} as any
     };
 
-    // URL analysis
-    if (content.match(/https?:\/\/[^\s]+/)) {
+    // URL analysis with enhanced detection
+    const urlRegex = /https?:\/\/[^\s]+/g;
+    const urls = content.match(urlRegex);
+    if (urls) {
       analysis.type = 'url';
       analysis.confidence = 0.9;
-      analysis.suggestions = ['Save to bookmarks', 'Share with team', 'Archive for later'];
+      analysis.suggestions = ['Save to bookmarks', 'Share with team', 'Archive for later', 'Open in browser'];
+      analysis.metadata = { urls, count: urls.length };
     }
-    // Email analysis
+    // Email analysis with enhanced patterns
     else if (content.match(/[\w.-]+@[\w.-]+\.\w+/)) {
       analysis.type = 'email';
       analysis.confidence = 0.85;
-      analysis.suggestions = ['Add to contacts', 'Send email', 'Save to CRM'];
+      analysis.suggestions = ['Add to contacts', 'Send email', 'Save to CRM', 'Create calendar event'];
     }
-    // Phone number analysis
+    // Phone number analysis with international support
     else if (content.match(/[\+]?[\d\s\-\(\)]{10,}/)) {
       analysis.type = 'phone';
       analysis.confidence = 0.8;
-      analysis.suggestions = ['Add to contacts', 'Make call', 'Send SMS'];
+      analysis.suggestions = ['Add to contacts', 'Make call', 'Send SMS', 'Save to address book'];
     }
-    // Code analysis
-    else if (content.includes('function') || content.includes('class') || content.includes('import')) {
+    // Enhanced code detection
+    else if (content.includes('function') || content.includes('class') || content.includes('import') || 
+             content.includes('def ') || content.includes('public class') || content.includes('const ')) {
       analysis.type = 'code';
       analysis.confidence = 0.75;
-      analysis.suggestions = ['Save as snippet', 'Format code', 'Share with team'];
+      analysis.suggestions = ['Save as snippet', 'Format code', 'Share with team', 'Create gist'];
+      
+      // Detect programming language
+      if (content.includes('def ') || content.includes('import ')) analysis.metadata.language = 'python';
+      else if (content.includes('function') || content.includes('const ')) analysis.metadata.language = 'javascript';
+      else if (content.includes('public class')) analysis.metadata.language = 'java';
     }
-    // Text analysis
+    // Address detection
+    else if (content.match(/\d+\s+[A-Za-z\s]+(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Drive|Dr|Lane|Ln)/i)) {
+      analysis.type = 'address';
+      analysis.confidence = 0.7;
+      analysis.suggestions = ['Open in maps', 'Save location', 'Get directions', 'Share location'];
+    }
+    // Enhanced text analysis
     else if (content.length > 50) {
       analysis.type = 'text';
       analysis.confidence = 0.6;
-      analysis.suggestions = ['Save as note', 'Create task', 'Share'];
+      analysis.suggestions = ['Save as note', 'Create task', 'Share', 'Translate'];
+      
+      // Detect if it's a task or todo
+      if (content.toLowerCase().includes('todo') || content.toLowerCase().includes('task') || 
+          content.toLowerCase().includes('remind')) {
+        analysis.suggestions.unshift('Create reminder');
+      }
     }
 
     return analysis;
+  };
+
+  // Get AI insights for user behavior
+  const getAIInsights = () => {
+    const insights = {
+      mostUsedSuggestionType: '',
+      averageConfidence: 0,
+      totalSuggestions: suggestions.length,
+      usageRate: 0,
+      topActions: [] as string[]
+    };
+
+    if (suggestions.length === 0) return insights;
+
+    // Calculate most used suggestion type
+    const typeCount = suggestions.reduce((acc, s) => {
+      acc[s.suggestion_type] = (acc[s.suggestion_type] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    insights.mostUsedSuggestionType = Object.keys(typeCount).reduce((a, b) => 
+      typeCount[a] > typeCount[b] ? a : b
+    );
+
+    // Calculate average confidence
+    insights.averageConfidence = suggestions.reduce((sum, s) => sum + s.confidence_score, 0) / suggestions.length;
+
+    // Calculate usage rate
+    const usedSuggestions = suggestions.filter(s => s.used).length;
+    insights.usageRate = usedSuggestions / suggestions.length;
+
+    return insights;
   };
 
   // Initialize settings
@@ -282,7 +409,7 @@ export const useAIAssistant = () => {
     if (user && assistantEnabled) {
       fetchSuggestions();
     }
-  }, [user, assistantEnabled]);
+  }, [user, assistantEnabled, fetchSuggestions]);
 
   return {
     suggestions,
@@ -292,10 +419,12 @@ export const useAIAssistant = () => {
     getFileOrganizationSuggestion,
     getDeviceRecommendations,
     markSuggestionUsed,
+    provideFeedback,
     dismissSuggestion,
     toggleAssistant,
     getSuggestionsByType,
     getSmartContentAnalysis,
+    getAIInsights,
     fetchSuggestions
   };
 };
