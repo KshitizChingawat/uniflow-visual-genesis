@@ -1,4 +1,3 @@
-
 import { Button } from '@/components/ui/button';
 import { Play, Download, ArrowRight } from 'lucide-react';
 import DeviceAnimation from './DeviceAnimation';
@@ -17,7 +16,7 @@ const HeroSection = () => {
           <div className="animate-slide-in">
             <h1 className="text-5xl md:text-7xl font-bold text-gray-900 mb-6 leading-tight">
               One Link.{' '}
-              <span className="bg-gradient-to-r from-unilink-600 to-purple-600 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-unilink-600 to-purple-600 bg-clip-text text-unilink-600">
                 Every Device.
               </span>
             </h1>
