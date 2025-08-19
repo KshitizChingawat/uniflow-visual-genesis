@@ -8,6 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import Logo from '@/components/Logo';
+import AnimatedToggle from '@/components/ui/animated-toggle';
 
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -49,6 +50,18 @@ const Login = () => {
             <div className="flex justify-center mb-4">
               <Logo size="lg" showText={false} />
             </div>
+            
+            {/* Dynamic Connection Toggle */}
+            <div className="mb-6">
+              <AnimatedToggle 
+                onToggle={(connected) => {
+                  if (connected) {
+                    console.log('Devices connected!');
+                  }
+                }}
+              />
+            </div>
+            
             <h1 className="text-2xl font-bold text-gray-900">Welcome back</h1>
             <p className="text-gray-600 mt-2">Sign in to your UniLink account</p>
           </div>
