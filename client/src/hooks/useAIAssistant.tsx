@@ -4,14 +4,14 @@ import { toast } from 'sonner';
 
 export interface AISuggestion {
   id: string;
-  user_id: string;
-  suggestion_type: 'clipboard_analysis' | 'file_organization' | 'device_recommendation' | 'workflow_automation' | 'content_categorization';
+  userId: string;
+  suggestionType: 'clipboard_analysis' | 'file_organization' | 'device_recommendation' | 'workflow_automation' | 'content_categorization';
   content: any;
-  confidence_score: number;
+  confidenceScore: number | null;
   used: boolean;
-  feedback_score?: number;
-  created_at: string;
-  expires_at?: string;
+  feedbackScore?: number | null;
+  createdAt: string;
+  expiresAt?: string | null;
 }
 
 export const useAIAssistant = () => {
@@ -295,9 +295,9 @@ export const useAIAssistant = () => {
   // Get suggestions by type with filtering
   const getSuggestionsByType = (type: string, includeUsed: boolean = false) => {
     return suggestions.filter(s => 
-      s.suggestion_type === type && 
+      s.suggestionType === type && 
       (includeUsed || !s.used) &&
-      (!s.expires_at || new Date(s.expires_at) > new Date())
+      (!s.expiresAt || new Date(s.expiresAt) > new Date())
     );
   };
 
@@ -379,7 +379,7 @@ export const useAIAssistant = () => {
 
     // Calculate most used suggestion type
     const typeCount = suggestions.reduce((acc, s) => {
-      acc[s.suggestion_type] = (acc[s.suggestion_type] || 0) + 1;
+      acc[s.suggestionType] = (acc[s.suggestionType] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
 
@@ -388,7 +388,7 @@ export const useAIAssistant = () => {
     );
 
     // Calculate average confidence
-    insights.averageConfidence = suggestions.reduce((sum, s) => sum + s.confidence_score, 0) / suggestions.length;
+    insights.averageConfidence = suggestions.reduce((sum, s) => sum + (s.confidenceScore || 0), 0) / suggestions.length;
 
     // Calculate usage rate
     const usedSuggestions = suggestions.filter(s => s.used).length;

@@ -63,7 +63,8 @@ const AIAssistantPanel = () => {
     }
   };
 
-  const getSuggestionColor = (confidence: number) => {
+  const getSuggestionColor = (confidence: number | null) => {
+    if (!confidence) return 'bg-gray-100 text-gray-800 border-gray-200';
     if (confidence >= 0.8) return 'bg-green-100 text-green-800 border-green-200';
     if (confidence >= 0.6) return 'bg-yellow-100 text-yellow-800 border-yellow-200';
     return 'bg-gray-100 text-gray-800 border-gray-200';
@@ -273,19 +274,19 @@ const AIAssistantPanel = () => {
                   >
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex items-center space-x-2">
-                        {getSuggestionIcon(suggestion.suggestion_type)}
+                        {getSuggestionIcon(suggestion.suggestionType)}
                         <span className="text-sm font-medium capitalize">
-                          {suggestion.suggestion_type.replace('_', ' ')}
+                          {suggestion.suggestionType.replace('_', ' ')}
                         </span>
                         <Badge 
                           variant="outline" 
-                          className={`text-xs ${getSuggestionColor(suggestion.confidence_score)}`}
+                          className={`text-xs ${getSuggestionColor(suggestion.confidenceScore)}`}
                         >
-                          {Math.round(suggestion.confidence_score * 100)}% confident
+                          {Math.round((suggestion.confidenceScore || 0) * 100)}% confident
                         </Badge>
                       </div>
                       <div className="text-xs text-gray-500">
-                        {new Date(suggestion.created_at).toLocaleDateString()}
+                        {new Date(suggestion.createdAt).toLocaleDateString()}
                       </div>
                     </div>
 
@@ -334,12 +335,12 @@ const AIAssistantPanel = () => {
                         <Badge variant="outline" className="text-xs">
                           Used
                         </Badge>
-                        {suggestion.feedback_score && (
+                        {suggestion.feedbackScore && (
                           <Badge 
-                            variant={suggestion.feedback_score > 0 ? "default" : "secondary"}
+                            variant={suggestion.feedbackScore > 0 ? "default" : "secondary"}
                             className="text-xs"
                           >
-                            {suggestion.feedback_score > 0 ? 'Helpful' : 'Not helpful'}
+                            {suggestion.feedbackScore > 0 ? 'Helpful' : 'Not helpful'}
                           </Badge>
                         )}
                       </div>
