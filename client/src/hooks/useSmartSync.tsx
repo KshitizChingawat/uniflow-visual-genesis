@@ -5,7 +5,8 @@ import { useFileTransfer } from './useFileTransfer';
 import { toast } from 'sonner';
 
 export const useSmartSync = () => {
-  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [smartSuggestionsEnabled, setSmartSuggestionsEnabled] = useState(true);
+  const [processingQueue, setProcessingQueue] = useState(0);
   const [loading, setLoading] = useState(false);
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(true);
   const [preferences, setPreferences] = useState({
@@ -240,16 +241,18 @@ export const useSmartSync = () => {
 
   // Update suggestions based on content changes
   useEffect(() => {
-    if (user && preferences.smartSuggestions) {
-      const recommendations = getSyncRecommendations();
-      setSuggestions(recommendations);
+    if (user && smartSuggestionsEnabled) {
+      setProcessingQueue(transfers.filter(t => t.transfer_status === 'pending').length);
     }
-  }, [user, clipboardHistory, transfers, preferences.smartSuggestions]);
+  }, [user, clipboardHistory, transfers, smartSuggestionsEnabled]);
 
   return {
-    suggestions,
+    smartSuggestionsEnabled,
+    setSmartSuggestionsEnabled,
+    processingQueue,
     loading,
     autoSyncEnabled,
+    setAutoSyncEnabled,
     preferences,
     getSmartFileOrganization,
     analyzeClipboardContent,

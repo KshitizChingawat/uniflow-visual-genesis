@@ -121,11 +121,27 @@ export const useSecureVault = () => {
     }
   }, [user]);
 
+  const retrieveSecurely = async (itemId: string) => {
+    const item = vaultItems.find(v => v.id === itemId);
+    if (item) {
+      return {
+        ...item,
+        decrypted_content: item.encryptedContent // In real app, this would be decrypted
+      };
+    }
+    return null;
+  };
+
+  const deleteVaultItem = async (itemId: string) => {
+    await removeFromVault(itemId);
+  };
+
   return {
     vaultItems,
     loading,
-    addToVault,
-    removeFromVault,
+    storeSecurely,
+    retrieveSecurely,
+    deleteVaultItem,
     fetchVaultItems
   };
 };

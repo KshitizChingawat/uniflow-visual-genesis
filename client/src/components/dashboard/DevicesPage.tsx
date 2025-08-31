@@ -88,7 +88,7 @@ const DevicesPage = () => {
                     </div>
                     <div>
                       <CardTitle className="flex items-center space-x-2">
-                        <span>{device.device_name}</span>
+                        <span>{device.deviceName}</span>
                         {device.id === currentDevice?.id && (
                           <Badge variant="secondary" className="bg-unilink-100 text-unilink-800">
                             Current Device
@@ -96,7 +96,7 @@ const DevicesPage = () => {
                         )}
                       </CardTitle>
                       <CardDescription>
-                        {device.device_type} • {device.platform}
+                        {device.deviceType} • {device.platform}
                       </CardDescription>
                     </div>
                   </div>
@@ -113,25 +113,25 @@ const DevicesPage = () => {
                   <div>
                     <p className="text-sm text-gray-600">Status</p>
                     <p className="font-medium">
-                      {device.is_active ? 'Online' : 'Offline'}
+                      {device.isActive ? 'Online' : 'Offline'}
                     </p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-600">Last Seen</p>
                     <p className="font-medium">
-                      {device.last_seen ? new Date(device.last_seen).toLocaleDateString() : 'Never'}
+                      {device.lastSeen ? new Date(device.lastSeen).toLocaleDateString() : 'Never'}
                     </p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-600">Added</p>
                     <p className="font-medium">
-                      {new Date(device.created_at).toLocaleDateString()}
+                      {new Date(device.createdAt).toLocaleDateString()}
                     </p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-600">Security</p>
                     <p className="font-medium text-green-600">
-                      {device.public_key ? 'Encrypted' : 'Basic'}
+                      {device.publicKey ? 'Encrypted' : 'Basic'}
                     </p>
                   </div>
                 </div>

@@ -16,12 +16,13 @@ export const useEnhancedFileTransfer = () => {
   const { user } = useAuth();
   const { devices, currentDevice } = useDevices();
   const { startFileTransfer, transfers, formatFileSize } = useFileTransfer();
-  const { getSmartFileOrganization } = useSmartSync();
+  const { getSmartFileOrganization, analyzeClipboardContent } = useSmartSync();
 
   // Enhanced file transfer with smart features
-  const enhancedFileTransfer = async (
+  const uploadFile = async (
     file: File, 
     targetDeviceId?: string, 
+    onProgress?: (progress: number) => void,
     options: {
       compress?: boolean;
       encrypt?: boolean;
@@ -34,8 +35,12 @@ export const useEnhancedFileTransfer = () => {
     try {
       setIsProcessing(true);
 
-      // Get smart organization suggestions
-      const smartSuggestions = await getSmartFileOrganization(file);
+      // Simulate upload progress
+      if (onProgress) {
+        for (let i = 0; i <= 100; i += 10) {
+          setTimeout(() => onProgress(i), i * 50);
+        }
+      }
 
       // Apply compression if enabled
       let processedFile = file;
@@ -51,22 +56,8 @@ export const useEnhancedFileTransfer = () => {
       );
 
       if (transferData) {
-        // Add to transfer history with metadata
-        const enhancedTransfer = {
-          ...transferData,
-          smartSuggestions,
-          originalSize: file.size,
-          processedSize: processedFile.size,
-          compressed: options.compress && compressionEnabled,
-          encrypted: options.encrypt && encryptionEnabled,
-          priority: options.priority || 'medium',
-          timestamp: Date.now()
-        };
-
-        setTransferHistory(prev => [enhancedTransfer, ...prev]);
-        
         toast.success('Enhanced file transfer started');
-        return enhancedTransfer;
+        return transferData;
       }
     } catch (err) {
       console.error('Enhanced transfer error:', err);
@@ -76,6 +67,40 @@ export const useEnhancedFileTransfer = () => {
     }
 
     return null;
+  };
+
+  const downloadFile = async (transferId: string, fileName: string) => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) return;
+
+      const response = await fetch(`/api/file-transfers/${transferId}/download`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        toast.error('Failed to download file');
+        return;
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      toast.success('File downloaded successfully');
+    } catch (err) {
+      console.error('Download file error:', err);
+      toast.error('Failed to download file');
+    }
   };
 
   // Batch file transfer
@@ -91,7 +116,7 @@ export const useEnhancedFileTransfer = () => {
 
     try {
       for (const file of files) {
-        const result = await enhancedFileTransfer(file, targetDeviceId, options);
+        const result = await uploadFile(file, targetDeviceId, undefined, options);
         if (result) {
           results.push(result);
         }
@@ -283,12 +308,15 @@ export const useEnhancedFileTransfer = () => {
 
   return {
     isProcessing,
+    uploadProgress: {},
+    downloadProgress: {},
     compressionEnabled,
     encryptionEnabled,
     autoRetryEnabled,
     uploadQueue,
-    transferHistory,
-    enhancedFileTransfer,
+    transfers,
+    uploadFile,
+    downloadFile,
     batchFileTransfer,
     categorizeFiles,
     getTransferRecommendations,

@@ -195,10 +195,10 @@ const SecurityPage = () => {
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center space-x-3">
                         <div className={`w-3 h-3 rounded-full ${
-                          device.is_active ? 'bg-green-500' : 'bg-gray-300'
+                          device.isActive ? 'bg-green-500' : 'bg-gray-300'
                         }`}></div>
                         <div>
-                          <h4 className="font-medium">{device.device_name}</h4>
+                          <h4 className="font-medium">{device.deviceName}</h4>
                           <p className="text-sm text-muted-foreground">{device.platform}</p>
                         </div>
                       </div>
@@ -217,15 +217,15 @@ const SecurityPage = () => {
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                       <div>
                         <p className="text-muted-foreground">Last Seen</p>
-                        <p className="font-medium">{new Date(device.last_seen).toLocaleDateString()}</p>
+                        <p className="font-medium">{new Date(device.lastSeen || device.createdAt).toLocaleDateString()}</p>
                       </div>
                       <div>
                         <p className="text-muted-foreground">Status</p>
-                        <p className="font-medium">{device.is_active ? 'Active' : 'Inactive'}</p>
+                        <p className="font-medium">{device.isActive ? 'Active' : 'Inactive'}</p>
                       </div>
                       <div>
                         <p className="text-muted-foreground">Type</p>
-                        <p className="font-medium capitalize">{device.device_type}</p>
+                        <p className="font-medium capitalize">{device.deviceType}</p>
                       </div>
                       <div>
                         <p className="text-muted-foreground">Trust Level</p>

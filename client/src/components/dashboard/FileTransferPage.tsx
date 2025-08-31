@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Upload, Download, Send, Trash2, X, FileText, Image, Video, Archive } from 'lucide-react';
 import { useFileTransfer } from '@/hooks/useFileTransfer';
 import { useDevices } from '@/hooks/useDevices';
-import { FileTransfer } from '@shared/schema';
+import { useDropzone } from 'react-dropzone';
 
 const FileTransferPage = () => {
   const { transfers, loading, startFileTransfer, cancelTransfer } = useFileTransfer();
@@ -15,6 +15,19 @@ const FileTransferPage = () => {
   const [selectedDevice, setSelectedDevice] = useState<string>('all');
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const onDrop = async (acceptedFiles: File[]) => {
+    for (const file of acceptedFiles) {
+      const targetDevice = selectedDevice === 'all' ? undefined : selectedDevice;
+      await startFileTransfer(file, targetDevice);
+    }
+  };
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    multiple: true,
+    maxSize: 100 * 1024 * 1024 // 100MB
+  });
 
   const handleFileSelect = () => {
     fileInputRef.current?.click();
@@ -29,26 +42,6 @@ const FileTransferPage = () => {
         fileInputRef.current.value = '';
       }
     }
-  };
-
-  const handleDrop = async (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    setDragOver(false);
-    
-    const files = Array.from(event.dataTransfer.files);
-    for (const file of files) {
-      const targetDevice = selectedDevice === 'all' ? undefined : selectedDevice;
-      await startFileTransfer(file, targetDevice);
-    }
-  };
-
-  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    setDragOver(true);
-  };
-
-  const handleDragLeave = () => {
-    setDragOver(false);
   };
 
   const getFileIcon = (fileType: string) => {
@@ -135,7 +128,7 @@ const FileTransferPage = () => {
                 <SelectItem value="all">All connected devices</SelectItem>
                 {devices.map((device) => (
                   <SelectItem key={device.id} value={device.id}>
-                    {device.deviceName} ({device.deviceType})
+                    {device.device_name} ({device.device_type})
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -144,19 +137,24 @@ const FileTransferPage = () => {
 
           {/* Drag & Drop Area */}
           <div
+            {...getRootProps()}
             className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-              dragOver 
+              isDragActive 
                 ? 'border-unilink-500 bg-unilink-50' 
                 : 'border-gray-300 hover:border-gray-400'
             }`}
-            onDrop={handleDrop}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
           >
+            <input {...getInputProps()} />
             <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-lg font-medium text-gray-900 mb-2">
-              Drop files here or click to browse
-            </p>
+            {isDragActive ? (
+              <p className="text-lg font-medium text-unilink-600 mb-2">
+                Drop files here to upload...
+              </p>
+            ) : (
+              <p className="text-lg font-medium text-gray-900 mb-2">
+                Drop files here or click to browse
+              </p>
+            )}
             <p className="text-sm text-gray-500 mb-4">
               Support for all file types up to 100MB
             </p>

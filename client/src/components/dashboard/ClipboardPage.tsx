@@ -100,10 +100,10 @@ const ClipboardPage = () => {
                   <div className="flex justify-between items-start mb-2">
                     <div className="flex items-center space-x-2">
                       <Badge variant="outline" className="text-xs">
-                        {item.content_type}
+                        {item.contentType}
                       </Badge>
                       <span className="text-sm text-gray-500">
-                        {new Date(item.sync_timestamp).toLocaleString()}
+                        {new Date(item.syncTimestamp).toLocaleString()}
                       </span>
                     </div>
                     <div className="flex space-x-2">
@@ -130,10 +130,10 @@ const ClipboardPage = () => {
                     </pre>
                   </div>
                   
-                  {item.synced_to_devices && item.synced_to_devices.length > 0 && (
+                  {item.syncedToDevices && item.syncedToDevices.length > 0 && (
                     <div className="mt-2">
                       <p className="text-xs text-gray-500">
-                        Synced to {item.synced_to_devices.length} device(s)
+                        Synced to {item.syncedToDevices.length} device(s)
                       </p>
                     </div>
                   )}

@@ -20,7 +20,7 @@ const DashboardHome = () => {
     }
   };
 
-  const activeDevices = devices.filter(device => device.is_active);
+  const activeDevices = devices.filter(device => device.isActive);
   const recentTransfers = transfers.slice(0, 3);
   const recentClipboard = clipboardHistory.slice(0, 3);
 
@@ -116,9 +116,9 @@ const DashboardHome = () => {
                 {activeDevices.slice(0, 3).map((device) => (
                   <div key={device.id} className="flex items-center justify-between p-2 border rounded-lg">
                     <div className="flex items-center space-x-3">
-                      {getDeviceIcon(device.device_type)}
+                      {getDeviceIcon(device.deviceType)}
                       <div>
-                        <p className="font-medium">{device.device_name}</p>
+                        <p className="font-medium">{device.deviceName}</p>
                         <p className="text-sm text-gray-500">{device.platform}</p>
                       </div>
                     </div>
@@ -156,17 +156,17 @@ const DashboardHome = () => {
                 {recentTransfers.map((transfer) => (
                   <div key={transfer.id} className="flex items-center justify-between p-2 border rounded-lg">
                     <div>
-                      <p className="font-medium">{transfer.file_name}</p>
+                      <p className="font-medium">{transfer.fileName}</p>
                       <p className="text-sm text-gray-500">
-                        {(transfer.file_size / 1024 / 1024).toFixed(2)} MB
+                        {(transfer.fileSize / 1024 / 1024).toFixed(2)} MB
                       </p>
                     </div>
                     <span className={`text-xs px-2 py-1 rounded ${
-                      transfer.transfer_status === 'completed' ? 'bg-green-100 text-green-800' :
-                      transfer.transfer_status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                      transfer.transferStatus === 'completed' ? 'bg-green-100 text-green-800' :
+                      transfer.transferStatus === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                       'bg-red-100 text-red-800'
                     }`}>
-                      {transfer.transfer_status}
+                      {transfer.transferStatus}
                     </span>
                   </div>
                 ))}
@@ -189,7 +189,7 @@ const DashboardHome = () => {
                   <div key={item.id} className="p-2 border rounded-lg">
                     <p className="text-sm font-medium truncate">{item.content}</p>
                     <p className="text-xs text-gray-500">
-                      {new Date(item.sync_timestamp).toLocaleString()}
+                      {new Date(item.syncTimestamp).toLocaleString()}
                     </p>
                   </div>
                 ))}

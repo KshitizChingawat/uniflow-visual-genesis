@@ -60,13 +60,145 @@ export class MemStorage implements IStorage {
     this.vaultItems = new Map();
     this.userPreferences = new Map();
     
-    // Add sample data for demo
     this.initializeSampleData();
   }
 
   private initializeSampleData() {
-    // Sample data will be created when users first interact with the system
-    // This ensures data integrity and authentic user experience
+    // Create a demo user for testing
+    const demoUser: User = {
+      id: 'demo-user-id',
+      email: 'demo@unilink.com',
+      password: '$2a$10$demo.hash.for.testing.purposes',
+      firstName: 'Demo',
+      lastName: 'User',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.users.set(demoUser.id, demoUser);
+
+    // Create sample devices
+    const devices = [
+      {
+        id: 'device-1',
+        userId: demoUser.id,
+        deviceName: 'MacBook Pro',
+        deviceType: 'desktop',
+        platform: 'macos',
+        deviceId: 'mac-device-1',
+        isActive: true,
+        lastSeen: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 'device-2',
+        userId: demoUser.id,
+        deviceName: 'iPhone 15',
+        deviceType: 'mobile',
+        platform: 'ios',
+        deviceId: 'ios-device-1',
+        isActive: false,
+        lastSeen: new Date(Date.now() - 3600000), // 1 hour ago
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+    ];
+
+    devices.forEach(device => this.devices.set(device.id, device as Device));
+
+    // Create sample clipboard items
+    const clipboardItems = [
+      {
+        id: 'clip-1',
+        userId: demoUser.id,
+        deviceId: 'device-1',
+        content: 'https://github.com/unilink/awesome-project',
+        contentType: 'text',
+        syncTimestamp: new Date(),
+        syncedToDevices: ['device-2'],
+        createdAt: new Date()
+      },
+      {
+        id: 'clip-2',
+        userId: demoUser.id,
+        deviceId: 'device-2',
+        content: 'Remember to update the documentation for the new API endpoints',
+        contentType: 'text',
+        syncTimestamp: new Date(Date.now() - 1800000), // 30 minutes ago
+        syncedToDevices: ['device-1'],
+        createdAt: new Date(Date.now() - 1800000)
+      }
+    ];
+
+    clipboardItems.forEach(item => this.clipboardItems.set(item.id, item as ClipboardItem));
+
+    // Create sample file transfers
+    const fileTransfers = [
+      {
+        id: 'transfer-1',
+        userId: demoUser.id,
+        senderDeviceId: 'device-1',
+        receiverDeviceId: 'device-2',
+        fileName: 'presentation.pdf',
+        fileSize: 2048000,
+        fileType: 'application/pdf',
+        transferStatus: 'completed',
+        transferMethod: 'cloud',
+        createdAt: new Date(Date.now() - 3600000),
+        completedAt: new Date(Date.now() - 3500000)
+      },
+      {
+        id: 'transfer-2',
+        userId: demoUser.id,
+        senderDeviceId: 'device-2',
+        receiverDeviceId: null,
+        fileName: 'vacation-photos.zip',
+        fileSize: 15728640,
+        fileType: 'application/zip',
+        transferStatus: 'in_progress',
+        transferMethod: 'cloud',
+        createdAt: new Date(Date.now() - 300000),
+        completedAt: null
+      }
+    ];
+
+    fileTransfers.forEach(transfer => this.fileTransfers.set(transfer.id, transfer as FileTransfer));
+
+    // Create sample AI suggestions
+    const suggestions = [
+      {
+        id: 'ai-1',
+        userId: demoUser.id,
+        suggestionType: 'clipboard_analysis',
+        content: {
+          category: 'url',
+          actions: ['Save bookmark', 'Share link', 'Open in browser'],
+          summary: 'GitHub repository link detected'
+        },
+        confidenceScore: 0.9,
+        used: false,
+        createdAt: new Date(),
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+      },
+      {
+        id: 'ai-2',
+        userId: demoUser.id,
+        suggestionType: 'file_organization',
+        content: {
+          category: 'documents',
+          suggested_folder: 'Work/Presentations',
+          tags: ['work', 'presentation', 'pdf'],
+          auto_actions: ['organize', 'backup']
+        },
+        confidenceScore: 0.8,
+        used: true,
+        feedbackScore: 1,
+        createdAt: new Date(Date.now() - 3600000),
+        expiresAt: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000)
+      }
+    ];
+
+    suggestions.forEach(suggestion => this.aiSuggestions.set(suggestion.id, suggestion as AiSuggestion));
   }
 
   async getUser(id: string): Promise<User | undefined> {
@@ -108,13 +240,32 @@ export class MemStorage implements IStorage {
   async createDevice(deviceData: any): Promise<Device> {
     const id = crypto.randomUUID();
     const now = new Date();
+    
+    // Check if device already exists for this user
+    const existingDevice = Array.from(this.devices.values()).find(
+      d => d.deviceId === deviceData.deviceId && d.userId === deviceData.userId
+    );
+    
+    if (existingDevice) {
+      // Update existing device
+      const updatedDevice = { 
+        ...existingDevice, 
+        isActive: true, 
+        lastSeen: now, 
+        updatedAt: now 
+      };
+      this.devices.set(existingDevice.id, updatedDevice);
+      return updatedDevice;
+    }
+    
     const device: Device = {
       ...deviceData,
       id,
       createdAt: now,
       updatedAt: now,
       lastSeen: now,
-      isActive: true
+      isActive: true,
+      publicKey: null
     };
     this.devices.set(id, device);
     return device;
@@ -143,10 +294,15 @@ export class MemStorage implements IStorage {
     const id = crypto.randomUUID();
     const now = new Date();
     const item: ClipboardItem = {
-      ...itemData,
       id,
-      createdAt: now,
-      syncTimestamp: now
+      userId: itemData.userId,
+      deviceId: itemData.device_id,
+      content: itemData.content,
+      contentType: itemData.content_type || 'text',
+      encryptedContent: null,
+      syncTimestamp: now,
+      syncedToDevices: [],
+      createdAt: now
     };
     this.clipboardItems.set(id, item);
     return item;
@@ -191,10 +347,16 @@ export class MemStorage implements IStorage {
     const transfer = this.fileTransfers.get(id);
     if (!transfer) return undefined;
     
-    const updatedTransfer = { ...transfer, ...updates };
+    const updatedTransfer = { 
+      ...transfer, 
+      ...updates,
+      transferStatus: updates.transferStatus || transfer.transferStatus
+    };
+    
     if (updates.transferStatus === 'completed') {
       updatedTransfer.completedAt = new Date();
     }
+    
     this.fileTransfers.set(id, updatedTransfer);
     return updatedTransfer;
   }
@@ -208,11 +370,15 @@ export class MemStorage implements IStorage {
   async createAISuggestion(suggestionData: any): Promise<AiSuggestion> {
     const id = crypto.randomUUID();
     const suggestion: AiSuggestion = {
-      ...suggestionData,
       id,
-      createdAt: new Date(),
+      userId: suggestionData.userId,
+      suggestionType: suggestionData.suggestionType,
+      content: suggestionData.content,
+      confidenceScore: suggestionData.confidenceScore || 0.5,
       used: false,
-      expiresAt: suggestionData.expiresAt || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+      feedbackScore: null,
+      createdAt: new Date(),
+      expiresAt: suggestionData.expiresAt || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
     };
     this.aiSuggestions.set(id, suggestion);
     return suggestion;
@@ -238,10 +404,15 @@ export class MemStorage implements IStorage {
   async createBluetoothDevice(deviceData: any): Promise<BluetoothDevice> {
     const id = crypto.randomUUID();
     const device: BluetoothDevice = {
-      ...deviceData,
       id,
-      createdAt: new Date(),
-      lastDiscovered: new Date()
+      deviceId: deviceData.deviceId || null,
+      bluetoothMac: deviceData.bluetooth_mac,
+      deviceName: deviceData.device_name,
+      deviceCapabilities: deviceData.device_capabilities || {},
+      signalStrength: deviceData.signal_strength || null,
+      pairingStatus: deviceData.pairing_status || 'discovered',
+      lastDiscovered: new Date(),
+      createdAt: new Date()
     };
     this.bluetoothDevices.set(id, device);
     return device;
@@ -257,8 +428,12 @@ export class MemStorage implements IStorage {
     const id = crypto.randomUUID();
     const now = new Date();
     const item: VaultItem = {
-      ...itemData,
       id,
+      userId: itemData.userId,
+      itemType: itemData.item_type,
+      encryptedContent: itemData.encrypted_content,
+      metadata: itemData.metadata || null,
+      tags: itemData.tags || [],
       createdAt: now,
       accessedAt: now
     };

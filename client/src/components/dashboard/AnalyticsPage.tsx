@@ -12,10 +12,10 @@ const AnalyticsPage = () => {
   const { transfers } = useFileTransfer();
 
   const totalDevices = devices.length;
-  const activeDevices = devices.filter(d => d.is_active).length;
+  const activeDevices = devices.filter(d => d.isActive).length;
   const totalClipboardItems = clipboardHistory.length;
   const totalTransfers = transfers.length;
-  const completedTransfers = transfers.filter(t => t.transfer_status === 'completed').length;
+  const completedTransfers = transfers.filter(t => t.transferStatus === 'completed').length;
 
   return (
     <div className="space-y-6">
@@ -102,17 +102,17 @@ const AnalyticsPage = () => {
                     <div key={transfer.id} className="flex items-center space-x-4">
                       <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                       <div className="flex-1">
-                        <p className="text-sm font-medium">{transfer.file_name}</p>
+                        <p className="text-sm font-medium">{transfer.fileName}</p>
                         <p className="text-xs text-muted-foreground">
-                          {new Date(transfer.created_at).toLocaleString()}
+                          {new Date(transfer.createdAt).toLocaleString()}
                         </p>
                       </div>
                       <span className={`text-xs px-2 py-1 rounded ${
-                        transfer.transfer_status === 'completed' ? 'bg-green-100 text-green-800' :
-                        transfer.transfer_status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                        transfer.transferStatus === 'completed' ? 'bg-green-100 text-green-800' :
+                        transfer.transferStatus === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                         'bg-red-100 text-red-800'
                       }`}>
-                        {transfer.transfer_status}
+                        {transfer.transferStatus}
                       </span>
                     </div>
                   ))}
@@ -136,17 +136,17 @@ const AnalyticsPage = () => {
                     <div key={device.id} className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
                         <div className={`w-2 h-2 rounded-full ${
-                          device.is_active ? 'bg-green-500' : 'bg-gray-300'
+                          device.isActive ? 'bg-green-500' : 'bg-gray-300'
                         }`}></div>
                         <div>
-                          <p className="text-sm font-medium">{device.device_name}</p>
+                          <p className="text-sm font-medium">{device.deviceName}</p>
                           <p className="text-xs text-muted-foreground">{device.platform}</p>
                         </div>
                       </div>
                       <span className={`text-xs px-2 py-1 rounded ${
-                        device.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                        device.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
                       }`}>
-                        {device.is_active ? 'Online' : 'Offline'}
+                        {device.isActive ? 'Online' : 'Offline'}
                       </span>
                     </div>
                   ))}
@@ -172,11 +172,11 @@ const AnalyticsPage = () => {
                 {devices.map((device) => (
                   <div key={device.id} className="border rounded-lg p-4">
                     <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium">{device.device_name}</h4>
+                      <h4 className="font-medium">{device.deviceName}</h4>
                       <span className={`text-xs px-2 py-1 rounded ${
-                        device.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                        device.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
                       }`}>
-                        {device.is_active ? 'Active' : 'Inactive'}
+                        {device.isActive ? 'Active' : 'Inactive'}
                       </span>
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -186,15 +186,15 @@ const AnalyticsPage = () => {
                       </div>
                       <div>
                         <p className="text-muted-foreground">Type</p>
-                        <p className="font-medium capitalize">{device.device_type}</p>
+                        <p className="font-medium capitalize">{device.deviceType}</p>
                       </div>
                       <div>
                         <p className="text-muted-foreground">Last Seen</p>
-                        <p className="font-medium">{new Date(device.last_seen).toLocaleDateString()}</p>
+                        <p className="font-medium">{new Date(device.lastSeen || device.createdAt).toLocaleDateString()}</p>
                       </div>
                       <div>
                         <p className="text-muted-foreground">Registered</p>
-                        <p className="font-medium">{new Date(device.created_at).toLocaleDateString()}</p>
+                        <p className="font-medium">{new Date(device.createdAt).toLocaleDateString()}</p>
                       </div>
                     </div>
                   </div>
@@ -220,32 +220,32 @@ const AnalyticsPage = () => {
                 {transfers.map((transfer) => (
                   <div key={transfer.id} className="border rounded-lg p-4">
                     <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium">{transfer.file_name}</h4>
+                      <h4 className="font-medium">{transfer.fileName}</h4>
                       <span className={`text-xs px-2 py-1 rounded ${
-                        transfer.transfer_status === 'completed' ? 'bg-green-100 text-green-800' :
-                        transfer.transfer_status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                        transfer.transferStatus === 'completed' ? 'bg-green-100 text-green-800' :
+                        transfer.transferStatus === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                         'bg-red-100 text-red-800'
                       }`}>
-                        {transfer.transfer_status}
+                        {transfer.transferStatus}
                       </span>
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                       <div>
                         <p className="text-muted-foreground">Size</p>
-                        <p className="font-medium">{(transfer.file_size / 1024 / 1024).toFixed(2)} MB</p>
+                        <p className="font-medium">{(transfer.fileSize / 1024 / 1024).toFixed(2)} MB</p>
                       </div>
                       <div>
                         <p className="text-muted-foreground">Type</p>
-                        <p className="font-medium">{transfer.file_type}</p>
+                        <p className="font-medium">{transfer.fileType}</p>
                       </div>
                       <div>
                         <p className="text-muted-foreground">Started</p>
-                        <p className="font-medium">{new Date(transfer.created_at).toLocaleString()}</p>
+                        <p className="font-medium">{new Date(transfer.createdAt).toLocaleString()}</p>
                       </div>
                       <div>
                         <p className="text-muted-foreground">Completed</p>
                         <p className="font-medium">
-                          {transfer.completed_at ? new Date(transfer.completed_at).toLocaleString() : 'Not completed'}
+                          {transfer.completedAt ? new Date(transfer.completedAt).toLocaleString() : 'Not completed'}
                         </p>
                       </div>
                     </div>

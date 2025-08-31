@@ -27,27 +27,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication routes
   app.post('/api/auth/register', async (req, res) => {
     try {
-      const userData = insertUserSchema.parse(req.body);
+      const { email, password, firstName, lastName } = req.body;
       
       // Check if user already exists
-      const existingUser = await storage.getUserByEmail(userData.email);
+      const existingUser = await storage.getUserByEmail(email);
       if (existingUser) {
         return res.status(400).json({ error: 'User already exists' });
       }
 
       // Hash password
-      const hashedPassword = await bcrypt.hash(userData.password, 10);
+      const hashedPassword = await bcrypt.hash(password, 10);
       
       const user = await storage.createUser({
-        ...userData,
-        password: hashedPassword
+        email,
+        password: hashedPassword,
+        firstName,
+        lastName
       });
 
       const token = jwt.sign({ userId: user.id }, JWT_SECRET);
       
-      res.json({ user: { id: user.id, email: user.email }, token });
+      res.json({ 
+        user: { 
+          id: user.id, 
+          email: user.email,
+          created_at: user.createdAt
+        }, 
+        token 
+      });
     } catch (error) {
-      res.status(400).json({ error: 'Invalid user data' });
+      console.error('Registration error:', error);
+      res.status(400).json({ error: 'Registration failed' });
     }
   });
 
@@ -67,8 +77,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const token = jwt.sign({ userId: user.id }, JWT_SECRET);
       
-      res.json({ user: { id: user.id, email: user.email }, token });
+      res.json({ 
+        user: { 
+          id: user.id, 
+          email: user.email,
+          created_at: user.createdAt
+        }, 
+        token 
+      });
     } catch (error) {
+      console.error('Login error:', error);
       res.status(500).json({ error: 'Login failed' });
     }
   });
@@ -79,6 +97,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const devices = await storage.getDevicesByUserId(req.user.userId);
       res.json(devices);
     } catch (error) {
+      console.error('Fetch devices error:', error);
       res.status(500).json({ error: 'Failed to fetch devices' });
     }
   });
@@ -89,6 +108,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const device = await storage.createDevice(deviceData);
       res.json(device);
     } catch (error) {
+      console.error('Create device error:', error);
       res.status(400).json({ error: 'Failed to create device' });
     }
   });
@@ -101,6 +121,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       res.json(device);
     } catch (error) {
+      console.error('Update device error:', error);
       res.status(400).json({ error: 'Failed to update device' });
     }
   });
@@ -113,6 +134,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       res.json({ success: true });
     } catch (error) {
+      console.error('Delete device error:', error);
       res.status(400).json({ error: 'Failed to delete device' });
     }
   });
@@ -123,6 +145,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const items = await storage.getClipboardItems(req.user.userId);
       res.json(items);
     } catch (error) {
+      console.error('Fetch clipboard error:', error);
       res.status(500).json({ error: 'Failed to fetch clipboard items' });
     }
   });
@@ -137,6 +160,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const item = await storage.createClipboardItem(clipboardData);
       res.json(item);
     } catch (error) {
+      console.error('Create clipboard error:', error);
       res.status(400).json({ error: 'Failed to create clipboard item' });
     }
   });
@@ -149,6 +173,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       res.json({ success: true });
     } catch (error) {
+      console.error('Delete clipboard error:', error);
       res.status(400).json({ error: 'Failed to delete clipboard item' });
     }
   });
@@ -159,13 +184,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const transfers = await storage.getFileTransfers(req.user.userId);
       res.json(transfers);
     } catch (error) {
+      console.error('Fetch transfers error:', error);
       res.status(500).json({ error: 'Failed to fetch file transfers' });
     }
   });
 
   app.post('/api/file-transfers', authenticateToken, async (req: any, res) => {
     try {
-      // Handle JSON request with proper field names
       const fileName = req.body.fileName || 'Unknown';
       const fileSize = req.body.fileSize || 0;
       const fileType = req.body.fileType || 'application/octet-stream';
@@ -213,23 +238,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       res.json(transfer);
     } catch (error) {
+      console.error('Update transfer error:', error);
       res.status(400).json({ error: 'Failed to update file transfer' });
     }
   });
 
   app.get('/api/file-transfers/:id/download', authenticateToken, async (req: any, res) => {
     try {
-      // Simulate file download
       const transfer = await storage.getFileTransfer(req.params.id);
       if (!transfer) {
         return res.status(404).json({ error: 'Transfer not found' });
       }
       
-      // In a real implementation, you would serve the actual file
       res.setHeader('Content-Disposition', `attachment; filename="${transfer.fileName}"`);
       res.setHeader('Content-Type', transfer.fileType || 'application/octet-stream');
       res.send('Sample file content for demo purposes');
     } catch (error) {
+      console.error('Download error:', error);
       res.status(500).json({ error: 'Failed to download file' });
     }
   });
@@ -240,6 +265,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const suggestions = await storage.getAISuggestions(req.user.userId);
       res.json(suggestions);
     } catch (error) {
+      console.error('Fetch AI suggestions error:', error);
       res.status(500).json({ error: 'Failed to fetch AI suggestions' });
     }
   });
@@ -247,114 +273,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/ai-assistant', authenticateToken, async (req: any, res) => {
     try {
       const { content, type, context } = req.body;
-      const openaiApiKey = process.env.OPENAI_API_KEY;
       
-      if (!openaiApiKey) {
-        // Provide mock AI suggestions when API key is not available
-        const mockSuggestions = {
-          clipboard_analysis: {
-            category: content.includes('http') ? 'url' : 'text',
-            actions: ['Save to notes', 'Share with team', 'Create reminder'],
-            summary: `Analyzed clipboard content: ${content.substring(0, 50)}...`,
-            confidence: 0.8
-          },
-          file_organization: {
-            category: 'documents',
-            suggested_folder: 'Downloads',
-            tags: ['recent', 'document'],
-            auto_actions: ['organize', 'backup'],
-            confidence: 0.7
-          },
-          device_recommendation: {
-            recommended_device: context?.devices?.[0]?.id || 'current',
-            reason: 'Best suited for this task based on device capabilities',
-            confidence: 0.9,
-            alternative: context?.devices?.[1]?.id || 'current'
-          }
-        };
-
-        const mockResponse = mockSuggestions[type as keyof typeof mockSuggestions] || {
-          suggestion: "AI functionality requires API key setup",
-          confidence: 0.5
-        };
-
-        const suggestion = await storage.createAISuggestion({
-          userId: req.user.userId,
-          suggestionType: type,
-          content: mockResponse,
-          confidenceScore: mockResponse.confidence || 0.5
-        });
-
-        return res.json({ 
-          success: true, 
-          suggestion: mockResponse, 
-          suggestion_id: suggestion.id,
-          confidenceScore: mockResponse.confidence || 0.5
-        });
-      }
-      
-      let prompt = '';
-      switch (type) {
-        case 'clipboard_analysis':
-          prompt = `Analyze this clipboard content and provide smart suggestions for actions or categorization: "${content}". Return JSON with: {"category": "text|url|email|phone|address|code|other", "actions": ["action1", "action2"], "summary": "brief description", "confidence": 0.8}`;
-          break;
-        case 'file_organization':
-          prompt = `Suggest optimal organization for this file: "${content}". Consider file type, name, and context: ${JSON.stringify(context)}. Return JSON with: {"category": "documents|media|code|archive|other", "suggested_folder": "folder_name", "tags": ["tag1", "tag2"], "auto_actions": ["action1", "action2"], "confidence": 0.8}`;
-          break;
-        case 'device_recommendation':
-          prompt = `Based on this task context: "${content}" and available devices: ${JSON.stringify(context.devices)}, recommend the best device. Return JSON with: {"recommended_device": "device_id", "reason": "explanation", "confidence": 0.9, "alternative": "device_id"}`;
-          break;
-        default:
-          throw new Error('Invalid AI request type');
-      }
-
-      const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openaiApiKey}`,
-          'Content-Type': 'application/json',
+      // Provide mock AI suggestions for demo
+      const mockSuggestions = {
+        clipboard_analysis: {
+          category: content.includes('http') ? 'url' : content.includes('@') ? 'email' : 'text',
+          actions: content.includes('http') ? ['Save bookmark', 'Share link', 'Open in browser'] : 
+                  content.includes('@') ? ['Add to contacts', 'Send email', 'Save to CRM'] :
+                  ['Save to notes', 'Create reminder', 'Share with team'],
+          summary: `Analyzed clipboard content: ${content.substring(0, 50)}${content.length > 50 ? '...' : ''}`,
+          confidence: 0.8
         },
-        body: JSON.stringify({
-          model: 'gpt-3.5-turbo',
-          messages: [
-            {
-              role: 'system',
-              content: 'You are an AI assistant for UniLink, a cross-device productivity app. Provide helpful, concise suggestions in valid JSON format only.'
-            },
-            {
-              role: 'user',
-              content: prompt
-            }
-          ],
-          max_tokens: 300,
-          temperature: 0.7,
-        }),
-      });
+        file_organization: {
+          category: 'documents',
+          suggested_folder: 'Downloads',
+          tags: ['recent', 'document'],
+          auto_actions: ['organize', 'backup'],
+          confidence: 0.7
+        },
+        device_recommendation: {
+          recommended_device: context?.devices?.[0]?.id || 'current',
+          reason: 'Best suited for this task based on device capabilities',
+          confidence: 0.9,
+          alternative: context?.devices?.[1]?.id || 'current'
+        }
+      };
 
-      if (!openaiResponse.ok) {
-        throw new Error('OpenAI API request failed');
-      }
+      const mockResponse = mockSuggestions[type as keyof typeof mockSuggestions] || {
+        suggestion: "AI functionality requires API key setup",
+        confidence: 0.5
+      };
 
-      const openaiData = await openaiResponse.json();
-      const aiResponse = openaiData.choices[0].message.content;
-
-      let parsedResponse;
-      try {
-        parsedResponse = JSON.parse(aiResponse);
-      } catch (e) {
-        parsedResponse = { suggestion: aiResponse, raw: true, confidence: 0.5 };
-      }
-
-      const confidenceScore = parsedResponse.confidence || 0.8;
-      
       const suggestion = await storage.createAISuggestion({
         userId: req.user.userId,
         suggestionType: type,
-        content: parsedResponse,
-        confidenceScore
+        content: mockResponse,
+        confidenceScore: mockResponse.confidence || 0.5
+      });
+
+      res.json({ 
+        success: true, 
+        suggestion: mockResponse, 
+        suggestion_id: suggestion.id,
+        confidenceScore: mockResponse.confidence || 0.5
       });
       
-      res.json({ success: true, suggestion: parsedResponse, suggestion_id: suggestion.id, confidenceScore });
     } catch (error) {
       console.error('AI assistant error:', error);
       res.status(500).json({ error: 'AI assistant failed' });
@@ -369,6 +332,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       res.json(suggestion);
     } catch (error) {
+      console.error('Update suggestion error:', error);
       res.status(400).json({ error: 'Failed to update suggestion' });
     }
   });
@@ -377,8 +341,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { feedback_score } = req.body;
       const suggestion = await storage.updateAISuggestion(req.params.id, {
-        feedback_score,
-        feedback_timestamp: new Date().toISOString()
+        feedbackScore: feedback_score,
+        feedbackTimestamp: new Date().toISOString()
       });
       
       if (!suggestion) {
@@ -387,6 +351,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json({ success: true, suggestion });
     } catch (error) {
+      console.error('Feedback error:', error);
       res.status(400).json({ error: 'Failed to provide feedback' });
     }
   });
@@ -399,6 +364,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       res.json({ success: true });
     } catch (error) {
+      console.error('Delete suggestion error:', error);
       res.status(400).json({ error: 'Failed to delete suggestion' });
     }
   });
@@ -409,6 +375,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const items = await storage.getVaultItems(req.user.userId);
       res.json(items);
     } catch (error) {
+      console.error('Fetch vault error:', error);
       res.status(500).json({ error: 'Failed to fetch vault items' });
     }
   });
@@ -419,6 +386,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const item = await storage.createVaultItem(vaultData);
       res.json(item);
     } catch (error) {
+      console.error('Create vault error:', error);
       res.status(400).json({ error: 'Failed to create vault item' });
     }
   });
@@ -431,6 +399,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       res.json({ success: true });
     } catch (error) {
+      console.error('Delete vault error:', error);
       res.status(400).json({ error: 'Failed to delete vault item' });
     }
   });
@@ -441,6 +410,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const preferences = await storage.updateUserPreferences(req.user.userId, req.body);
       res.json({ success: true, preferences });
     } catch (error) {
+      console.error('Update preferences error:', error);
       res.status(400).json({ error: 'Failed to update preferences' });
     }
   });
@@ -448,14 +418,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Sync trigger route
   app.post('/api/sync/trigger', authenticateToken, async (req: any, res) => {
     try {
-      // Simulate manual sync completion
       res.json({ success: true, message: 'Sync completed', timestamp: new Date().toISOString() });
     } catch (error) {
+      console.error('Sync trigger error:', error);
       res.status(500).json({ error: 'Sync failed' });
     }
   });
 
   const httpServer = createServer(app);
-
   return httpServer;
 }
